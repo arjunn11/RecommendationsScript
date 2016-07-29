@@ -23,6 +23,7 @@ namespace Recommendations
     using Microsoft.WindowsAzure.Storage;
     using System;
     using System.IO;
+    using System.Net.Http;
     using System.Reflection;
     using System.Threading;
 
@@ -31,7 +32,6 @@ namespace Recommendations
         private static string AccountKey = "611af3f1263e48e9bd4e7ba30a249a43"; // <---  Set to your API key here.
         private const string BaseUri = "https://westus.api.cognitive.microsoft.com/recommendations/v4.0"; 
         private static RecommendationsApiWrapper recommender = null;
-        private readonly HttpClient _httpClient;
 
         /// <summary>
         /// 1) Builds a recommendations model and upload catalog and usage data
@@ -42,71 +42,107 @@ namespace Recommendations
         /// </summary>
         public static void Main(string[] args)
         {
-            //StartUp();
-            DeleteAllModels();
+            if (String.IsNullOrEmpty(AccountKey))
+            {
+                Console.WriteLine("Please enter your Recommendations API Account key:");
+                AccountKey = Console.ReadLine();
+            }
+
+            bool quit = false;
+            string modelName;
+            string modelId = null;
+            long buildId = -1;
+            recommender = new RecommendationsApiWrapper(AccountKey, BaseUri);
+
+            while (true)
+            {
+                int input;
+                Console.WriteLine("Enter 0 to quit");
+                Console.WriteLine("Enter 1 to create a new model, upload data, and train model (create a recommendations build).");
+                Console.WriteLine("Enter 2 to print all current models");
+                Console.WriteLine("Enter 3 to delete all current models");
+                Console.WriteLine("Enter 4 to get single recommendation");
+                Console.WriteLine("Enter 5 to delete a model by modelid");
+
+                while (true)
+                {
+                    if (Int32.TryParse(Console.ReadLine(), out input))
+                        break;
+                    else
+                        Console.WriteLine("Invalid input. Try again.");
+                }
+                try
+                {
+                    switch (input)
+                    {
+                        case 0:
+                            quit = true;
+                            break;
+                        case 1:
+                            Console.WriteLine("Enter model name");
+                            modelName = Console.ReadLine();
+                            modelId = CreateModel(modelName);
+                            buildId = UploadDataAndTrainModel(modelId, BuildType.Recommendation);
+                            break;
+                        case 2:
+                            PrintAllModels();
+                            break;
+                        case 3:
+                            DeleteAllModels();
+                            break;
+                        case 4:
+                            GetRecommendationsSingleRequest(recommender, modelId, buildId);
+                            break;
+                        case 5:
+                            Console.WriteLine("enter a model id");
+                            modelId = Console.ReadLine();
+                            recommender.DeleteModel(modelId);
+                            break;
+                    }
+                }
+                catch(Exception e)
+                {
+                    Console.WriteLine("Error: {0}", e.Message);
+                }
+                Console.WriteLine("Finished operation(s). \n");
+                if (quit) break;
+            }
         }
 
         public static void DeleteAllModels()
         {
             recommender = new RecommendationsApiWrapper(AccountKey, BaseUri);
             var modelInfoList = recommender.GetAllModels();
-        }
-
-        public static void StartUp()
-        {
-            string modelName = "ModelSix";
-            string modelId = null;
-            long buildId = -1;
-
             try
             {
-                if (String.IsNullOrEmpty(AccountKey))
+                foreach (var model in modelInfoList.Models)
                 {
-                    Console.WriteLine("In order to use this sample, you need to get have an Account Key for the Recommendations Cognitive Service.");
-                    Console.WriteLine("You can get one from the Azure Management Portal (http://go.microsoft.com/fwlink/?LinkId=761106)");
-                    Console.WriteLine("Please enter your Recommendations API Account key:");
-                    AccountKey = Console.ReadLine();
-                    return;
+                    recommender.DeleteModel(model.Id);
                 }
-
-                recommender = new RecommendationsApiWrapper(AccountKey, BaseUri);
-
-                // Create a model if not already provided.
-                if (String.IsNullOrEmpty(modelId))
-                {
-                    modelId = CreateModel(modelName);
-                }
-
-                // If build is not provided, trigger a build with new data.
-                if (buildId == -1)
-                {
-                    // Upload Catalog and Usage data and then train the model (create a build)
-                    buildId = UploadDataAndTrainModel(modelId, BuildType.Recommendation);
-                }
-
-                // Get item-to-item recommendations and user-to-item recommendations one at a time
-                GetRecommendationsSingleRequest(recommender, modelId, buildId);
-
-                // Uncomment to score a batch of recommendations.
-                // GetRecommendationsBatch(recommender, modelId, buildId);
-
-                Console.WriteLine("Press any key to end");
-                Console.ReadKey();
             }
             catch (Exception e)
             {
-                Console.WriteLine("Error encountered:");
-                Console.WriteLine(e.Message);
-                Console.WriteLine("Press any key to continue.");
-                Console.ReadKey();
+                Console.WriteLine("Error encountered: {0}", e);
             }
-            finally
-            {
-                // Uncomment the line below if you wish to delete the model.
-                // Note that you can have up to 10 models at any time. 
-                // You may have up to 20 builds per model.
-                recommender.DeleteModel(modelId);
-            }
+            
+        }
+
+        public static void PrintAllModels()
+        {
+            recommender = new RecommendationsApiWrapper(AccountKey, BaseUri);
+            var modelInfoList = recommender.GetAllModels();
+
+                try
+                {
+                    foreach (var model in modelInfoList.Models)
+                    {
+                        Console.WriteLine("Name: {0}, Id: {1}", model.Name, model.Id);
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Error encountered: {0}", e);
+                }            
         }
 
         /// <summary>
@@ -132,7 +168,7 @@ namespace Recommendations
         /// <param name="recommender">Wrapper that maintains API key</param>
         /// <param name="buildType">The type of build. (Recommendation or FBT)</param>
         /// <param name="modelId">The model Id</param>
-        public static long UploadDataAndTrainModel(string modelId, BuildType buildType = BuildType.Recommendation)
+        public static long UploadDataAndTrainModel(string modelId, BuildType buildType)
         {
             long buildId = -1;
             
@@ -279,7 +315,7 @@ namespace Recommendations
 
             string connectionString = "DefaultEndpointsProtocol=https;AccountName=" + blobStorageAccountName + ";AccountKey=" + blobStorageAccountKey;
 
-            // Copy input file from resources directory to blob storate
+            // Copy input file from resources directory to blob storage
             var sourceStorageAccount = CloudStorageAccount.Parse(connectionString);
             BlobHelper bh = new BlobHelper(sourceStorageAccount, containerName);
             var resourcesDir = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Resources");

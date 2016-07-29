@@ -168,7 +168,7 @@
         public void DeleteModel(string modelId)
         {
             string uri = BaseUri + "/models/" + modelId;
-            var response = _httpClient.DeleteAsync(uri).Result;
+            var response = _httpClient.DeleteAsync(uri).Result;//Send DELETE request to specific URI.
             if (!response.IsSuccessStatusCode)
             {
                 throw new Exception(
@@ -177,6 +177,14 @@
             }
         }
 
+        public ModelInfoList GetAllModels()
+        {
+            string uri = BaseUri + "/models";
+            var response = _httpClient.GetAsync(uri).Result;
+            var jsonString = response.Content.ReadAsStringAsync().Result;
+            var modelInfoList = JsonConvert.DeserializeObject<ModelInfoList>(jsonString);
+            return modelInfoList;
+        }
 
         /// <summary>
         /// Trigger a recommendation build for the given model.
@@ -406,15 +414,6 @@
             operationLocationHeader = response.Headers.GetValues("Operation-Location").FirstOrDefault();
             var batchJobResponse = JsonConvert.DeserializeObject<BatchJobsResponse>(jsonString);
             return batchJobResponse.BatchId;
-        }
-
-        public ModelInfoList GetAllModels()
-        {
-            string uri = BaseUri + "/recommendations/v4.0/models/";
-            var response = _httpClient.GetAsync(uri).Result;
-            var jsonString = response.Content.ReadAsStringAsync().Result;
-            var modelInfo = JsonConvert.DeserializeObject<ModelInfoList>(jsonString);
-            return modelInfo;
         }
 
         /// <summary>
