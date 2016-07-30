@@ -142,7 +142,7 @@ namespace Recommendations
                 catch (Exception e)
                 {
                     Console.WriteLine("Error encountered: {0}", e);
-                }            
+                }        
         }
 
         /// <summary>
