@@ -20,16 +20,19 @@
 namespace Recommendations
 {
     using AzureMLRecoSampleApp;
-    using Microsoft.WindowsAzure.Storage;
     using System;
     using System.IO;
     using System.Net.Http;
     using System.Reflection;
     using System.Threading;
+    using Microsoft.WindowsAzure;
+    using Microsoft.WindowsAzure.Storage;
+    using Microsoft.WindowsAzure.Storage.Blob;
+    using System.Configuration;
 
     public class RecommendationsSampleApp
     {
-        private static string AccountKey = "611af3f1263e48e9bd4e7ba30a249a43"; // <---  Set to your API key here.
+        private static string AccountKey = "22fe1376df4444f3b75712ecc208b028"; // <---  Set to your API key here.
         private const string BaseUri = "https://westus.api.cognitive.microsoft.com/recommendations/v4.0"; 
         private static RecommendationsApiWrapper recommender = null;
 
@@ -280,7 +283,6 @@ namespace Recommendations
             }
         }
 
-
         /// <summary>
         /// Shows how to get item-to-item recommendations in batch.
         /// Before you can use this method, you need to provide your blob account name, blob account key, and the input container name.
@@ -293,10 +295,8 @@ namespace Recommendations
             #region  setup
             // Set storage credentials and copy input file that defines items we want to get recommendations to the Blob Container.
 
-            // This is the name of the input file, it needs to be formatted accorrding to ____TODO_____
-            string blobStorageAccountName = ""; // enter your account name here.
-            string blobStorageAccountKey = ""; // enter your account key here
-            const string containerName = ""; // enter your container name here
+            string blobStorageAccountName = "recommendationscache";
+            const string containerName = "batch";
 
             string outputContainerName = containerName;
             string baseLocation   = "https://" + blobStorageAccountName + ".blob.core.windows.net/";
@@ -304,16 +304,7 @@ namespace Recommendations
             string outputFileName = "batchOutput.json"; // the batch input
             string errorFileName  = "batchError.json"; // the batch input
 
-            // Validate user entered credentials.
-            if (String.IsNullOrEmpty(blobStorageAccountKey) || String.IsNullOrEmpty(blobStorageAccountKey) || String.IsNullOrEmpty(containerName))
-            {
-                Console.WriteLine("GetRecommendationsBatch: Provide your blob account name, blob account key, and the input container name.");
-                Console.WriteLine("Press any key to continue.");
-                Console.ReadKey();
-            }
-
-
-            string connectionString = "DefaultEndpointsProtocol=https;AccountName=" + blobStorageAccountName + ";AccountKey=" + blobStorageAccountKey;
+            string connectionString = ConfigurationManager.AppSettings["BlogConnectionString"];
 
             // Copy input file from resources directory to blob storage
             var sourceStorageAccount = CloudStorageAccount.Parse(connectionString);
@@ -369,7 +360,6 @@ namespace Recommendations
             };
 
             #endregion
-
 
             #region start the job, wait for completion 
 
