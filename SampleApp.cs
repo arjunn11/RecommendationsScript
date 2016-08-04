@@ -33,7 +33,7 @@ namespace Recommendations
     public class RecommendationsSampleApp
     {
         private static string AccountKey = "22fe1376df4444f3b75712ecc208b028"; // <---  Set to your API key here.
-        private const string BaseUri = "https://westus.api.cognitive.microsoft.com/recommendations/v4.0"; 
+        private const string BaseUri = "https://westus.api.cognitive.microsoft.com/recommendations/v4.0";
         private static RecommendationsApiWrapper recommender = null;
 
         /// <summary>
@@ -66,6 +66,8 @@ namespace Recommendations
                 Console.WriteLine("Enter 3 to delete all current models");
                 Console.WriteLine("Enter 4 to get single recommendation");
                 Console.WriteLine("Enter 5 to delete a model by modelid");
+                Console.WriteLine("Enter 6 to run batch job");
+                Console.WriteLine("Enter 7 to print all builds for a model");
 
                 while (true)
                 {
@@ -101,9 +103,27 @@ namespace Recommendations
                             modelId = Console.ReadLine();
                             recommender.DeleteModel(modelId);
                             break;
+                        case 6:
+                            /*Console.WriteLine("enter model id");
+                            modelId = Console.ReadLine();
+                            Console.WriteLine("enter build id");
+                            if(!(long.TryParse(Console.ReadLine(), out buildId)))
+                            {
+                                Console.WriteLine("Invalid input. Try again.");
+                                break;
+                            }*/
+                            modelId = "7412db41-df78-4801-ba58-aa1c6f93b091";
+                            buildId = 1566426;
+                            GetRecommendationsBatch(recommender, modelId, buildId);
+                            break;
+                        case 7:
+                            Console.WriteLine("enter a model id");
+                            modelId = Console.ReadLine();
+                            PrintAllBuilds(modelId);
+                            break;
                     }
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     Console.WriteLine("Error: {0}", e.Message);
                 }
@@ -127,25 +147,41 @@ namespace Recommendations
             {
                 Console.WriteLine("Error encountered: {0}", e);
             }
-            
+
         }
 
         public static void PrintAllModels()
         {
             recommender = new RecommendationsApiWrapper(AccountKey, BaseUri);
-            var modelInfoList = recommender.GetAllModels();
-
-                try
+            try
+            {
+                var modelInfoList = recommender.GetAllModels();
+                foreach (var model in modelInfoList.Models)
                 {
-                    foreach (var model in modelInfoList.Models)
-                    {
-                        Console.WriteLine("Name: {0}, Id: {1}", model.Name, model.Id);
-                    }
+                    Console.WriteLine("Name: {0}, Id: {1}", model.Name, model.Id);
                 }
-                catch (Exception e)
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Error encountered: {0}", e);
+            }
+        }
+
+        public static void PrintAllBuilds(string modelId)
+        {
+            recommender = new RecommendationsApiWrapper(AccountKey, BaseUri);
+            try
+            {
+                var buildInfoList = recommender.GetAllBuilds(modelId);
+                foreach(var build in buildInfoList.Builds)
                 {
-                    Console.WriteLine("Error encountered: {0}", e);
-                }        
+                    Console.WriteLine("Name: {0}, Id: {1}", build.Id);
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Error encountered: {0}", e);
+            }
         }
 
         /// <summary>
@@ -174,7 +210,7 @@ namespace Recommendations
         public static long UploadDataAndTrainModel(string modelId, BuildType buildType)
         {
             long buildId = -1;
-            
+
             // Import data to the model.            
             var resourcesDir = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Resources");
             Console.WriteLine("Importing catalog files...");
@@ -218,7 +254,7 @@ namespace Recommendations
                 Console.WriteLine("Build {0} did not end successfully, the sample app will stop here.", buildId);
                 Console.WriteLine("Press any key to end");
                 Console.ReadKey();
-                return - 1;
+                return -1;
             }
 
             // Waiting  in order to propagate the model updates from the build...
@@ -294,17 +330,16 @@ namespace Recommendations
         {
             #region  setup
             // Set storage credentials and copy input file that defines items we want to get recommendations to the Blob Container.
-
             string blobStorageAccountName = "recommendationscache";
             const string containerName = "batch";
 
             string outputContainerName = containerName;
-            string baseLocation   = "https://" + blobStorageAccountName + ".blob.core.windows.net/";
-            string inputFileName  = "batchInput.json"; // the batch input
+            string baseLocation = "https://" + blobStorageAccountName + ".blob.core.windows.net/";
+            string inputFileName = "batchInput.json"; // the batch input
             string outputFileName = "batchOutput.json"; // the batch input
-            string errorFileName  = "batchError.json"; // the batch input
+            string errorFileName = "batchError.json"; // the batch input
 
-            string connectionString = ConfigurationManager.AppSettings["BlogConnectionString"];
+            string connectionString = ConfigurationManager.AppSettings["BlobConnectionString"];
 
             // Copy input file from resources directory to blob storage
             var sourceStorageAccount = CloudStorageAccount.Parse(connectionString);
@@ -312,14 +347,11 @@ namespace Recommendations
             var resourcesDir = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Resources");
             bh.PutBlockBlob(containerName, inputFileName, File.ReadAllText(Path.Combine(resourcesDir, inputFileName)));
 
-
             var inputSas = BlobHelper.GenerateBlobSasToken(connectionString, containerName, inputFileName);
             var outputSas = BlobHelper.GenerateBlobSasToken(connectionString, outputContainerName, outputFileName);
             var errorSas = BlobHelper.GenerateBlobSasToken(connectionString, outputContainerName, errorFileName);
 
-
             // Now we need to define the batch job to perform.
-
             BatchJobsRequestInfo batchJobsRequestInfo = new BatchJobsRequestInfo
             {
                 Input = new StorageBlobInfo
@@ -352,8 +384,8 @@ namespace Recommendations
                 {
                     ApiName = "ItemRecommend",
                     ModelId = modelId, //staging model id for books
-                    BuildId = buildId.ToString(),   
-                    NumberOfResults = "10",
+                    BuildId = buildId.ToString(),
+                    NumberOfResults = "3",
                     IncludeMetadata = "false",
                     MinimalScore = "0"
                 }

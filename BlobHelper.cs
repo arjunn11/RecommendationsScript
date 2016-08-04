@@ -27,12 +27,14 @@ namespace AzureMLRecoSampleApp
             this._blobClient = _account.CreateCloudBlobClient();
             LinearRetry linearRetry = new LinearRetry(TimeSpan.FromMilliseconds(500), 3);
             this._blobClient.DefaultRequestOptions.RetryPolicy = linearRetry;
-
             if (!string.IsNullOrEmpty(containerName))
             {
                 this._container = _blobClient.GetContainerReference(containerName);
+                Console.WriteLine("entered");
                 this._container.CreateIfNotExists();
             }
+            Console.WriteLine("here");
+
         }
 
         /// <summary>
@@ -139,7 +141,6 @@ namespace AzureMLRecoSampleApp
             }
         }
         
-
         /// <summary>
         /// The following method lists the blobs under the default container (with some prefix if the prefix is set)
         /// </summary>
@@ -157,7 +158,6 @@ namespace AzureMLRecoSampleApp
             return ListBlobs(_container.Name, out blobList, prefix);
         }
         
-
         /// <summary>
         /// Queries for a specific blob-name inside a blob container
         /// </summary>
@@ -171,7 +171,6 @@ namespace AzureMLRecoSampleApp
             }
             return blobList.Any(cloudBlob => ((ICloudBlob)cloudBlob).Name.Equals(blobName));
         }
-
         
         /// <summary>
         /// Get a Stream that enables to read from a blob
@@ -187,7 +186,6 @@ namespace AzureMLRecoSampleApp
             BlobRequestOptions opt = new BlobRequestOptions { MaximumExecutionTime = GetDataTimeout };
             return blobReferenceFromServer.OpenRead(null, opt);
         }
-
         
         /// <summary>
         /// Put (create or update) a block blob
@@ -270,7 +268,6 @@ namespace AzureMLRecoSampleApp
             System.Text.UTF8Encoding encoding = new System.Text.UTF8Encoding();
             return encoding.GetString(buffer);
         }
-
 
         public static string GenerateBlobSasToken(string connectionString, string inputContainerName, string inputBlobName)
         {

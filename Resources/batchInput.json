@@ -1,7 +1,84 @@
-  {
-    "requests": [
-      { "SeedItems": [ "CTF-01440", "DHF-01210" ] },     
-      { "SeedItems": [ "DHF-01222" ] },
-      { "SeedItems": [ "DHF-00894", "FLF-00239" ] }
-    ]
-  }
+{
+  "requests": [
+    {
+      "SeedItems": [
+        "1"
+      ]
+    },
+    {
+      "SeedItems": [
+        "2"
+      ]
+    },
+    {
+      "SeedItems": [
+        "3"
+      ]
+    },
+    {
+      "SeedItems": [
+        "4"
+      ]
+    },
+    {
+      "SeedItems": [
+        "5"
+      ]
+    },
+    {
+      "SeedItems": [
+        "6"
+      ]
+    },
+    {
+      "SeedItems": [
+        "7"
+      ]
+    },
+    {
+      "SeedItems": [
+        "8"
+      ]
+    },
+    {
+      "SeedItems": [
+        "9"
+      ]
+    },
+    {
+      "SeedItems": [
+        "10"
+      ]
+    },
+    {
+      "SeedItems": [
+        "11"
+      ]
+    },
+    {
+      "SeedItems": [
+        "12"
+      ]
+    },
+    {
+      "SeedItems": [
+        "13"
+      ]
+    },
+    {
+      "SeedItems": [
+        "14"
+      ]
+    },
+    {
+      "SeedItems": [
+        "15"
+      ]
+    },
+    {
+      "SeedItems": [
+        "16"
+      ]
+    }
+  ]
+}

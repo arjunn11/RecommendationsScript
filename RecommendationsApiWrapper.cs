@@ -118,7 +118,6 @@
             }
         }
 
-
         /// <summary>
         /// Submit a model build, with passed build parameters.
         /// </summary>
@@ -142,7 +141,6 @@
             var buildModelResponse = JsonConvert.DeserializeObject<BuildModelResponse>(jsonString);
             return buildModelResponse.BuildId;
         }
-
 
         /// <summary>
         /// Delete a certain build of a model.
@@ -184,6 +182,15 @@
             var jsonString = response.Content.ReadAsStringAsync().Result;
             var modelInfoList = JsonConvert.DeserializeObject<ModelInfoList>(jsonString);
             return modelInfoList;
+        }
+
+        public BuildInfoList GetAllBuilds(string modelId)
+        {
+            string uri = BaseUri + "/models/" + modelId + "/builds";
+            var response = _httpClient.GetAsync(uri).Result;
+            var jsonString = response.Content.ReadAsStringAsync().Result;
+            var buildInfoList = JsonConvert.DeserializeObject<BuildInfoList>(jsonString);
+            return buildInfoList;
         }
 
         /// <summary>
