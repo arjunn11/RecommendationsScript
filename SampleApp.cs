@@ -29,6 +29,8 @@ namespace Recommendations
     using Microsoft.WindowsAzure.Storage;
     using Microsoft.WindowsAzure.Storage.Blob;
     using System.Configuration;
+    using Newtonsoft.Json.Linq;
+    using System.Collections.Generic;
 
     public class RecommendationsSampleApp
     {
@@ -68,6 +70,7 @@ namespace Recommendations
                 Console.WriteLine("Enter 5 to delete a model by modelid");
                 Console.WriteLine("Enter 6 to run batch job");
                 Console.WriteLine("Enter 7 to print all builds for a model");
+                Console.WriteLine("Enter 8 to parse batch output.");
 
                 while (true)
                 {
@@ -120,6 +123,9 @@ namespace Recommendations
                             Console.WriteLine("enter a model id");
                             modelId = Console.ReadLine();
                             PrintAllBuilds(modelId);
+                            break;
+                        case 8:
+                            ParseBatchOutput();
                             break;
                     }
                 }
@@ -431,7 +437,55 @@ namespace Recommendations
         //Parse output JSON, extract recommendations, batch upload to SQL table.
         public static void ParseBatchOutput()
         {
+            const string containerName = "batch";
+            const string blobName = "batchOutput.json";
+            string jsonOutput;
+            string connectionString = ConfigurationManager.AppSettings["BlobConnectionString"];
+            var sourceStorageAccount = CloudStorageAccount.Parse(connectionString);
+            BlobHelper bh = new BlobHelper(sourceStorageAccount, containerName);
+            if(!bh.GetBlob(containerName, blobName, out jsonOutput))
+            {
+                Console.WriteLine("Failed to read blob - see error message.");
+                return;
+            }
 
+            Console.WriteLine("Json output: " + jsonOutput);
+
+            Dictionary<int, List<int>> seedToRec = new Dictionary<int, List<int>>();
+            int seedItem;
+            List<int> seedRecs;
+            try
+            {
+                dynamic output = JObject.Parse(jsonOutput);
+                foreach (var result in output.results)
+                {
+                    seedItem = result.request.seedItems[0];
+                    seedRecs = new List<int>();
+                    foreach (var recommendation in result.recommendations)
+                    {
+                        int itemId;
+                        //parse from JValue to int
+                        Int32.TryParse(recommendation.items[0].itemId.ToString(), out itemId);
+                        seedRecs.Add(itemId);
+                    }
+                    seedToRec.Add(seedItem, seedRecs);
+                }
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine("Error: " + e);
+            }
+
+            foreach (KeyValuePair<int, List<int>> kvp in seedToRec)
+            {
+                //textBox3.Text += ("Key = {0}, Value = {1}", kvp.Key, kvp.Value);
+                Console.Write("Key = {0}, ", kvp.Key);
+                foreach(var rec in kvp.Value)
+                {
+                    Console.Write(rec + " ");
+                }
+                Console.WriteLine();
+            }
         }
     }
 }

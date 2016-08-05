@@ -30,11 +30,8 @@ namespace AzureMLRecoSampleApp
             if (!string.IsNullOrEmpty(containerName))
             {
                 this._container = _blobClient.GetContainerReference(containerName);
-                Console.WriteLine("entered");
                 this._container.CreateIfNotExists();
             }
-            Console.WriteLine("here");
-
         }
 
         /// <summary>
