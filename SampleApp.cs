@@ -428,5 +428,10 @@ namespace Recommendations
             }
             #endregion
         }
+        //Parse output JSON, extract recommendations, batch upload to SQL table.
+        public static void ParseBatchOutput()
+        {
+
+        }
     }
 }
