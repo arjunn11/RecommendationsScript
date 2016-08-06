@@ -434,7 +434,7 @@ namespace Recommendations
             }
             #endregion
         }
-        //Parse output JSON, extract recommendations, batch upload to SQL table.
+        //Parse output JSON, extract recommendations (ProductIds), batch upload to SQL table.
         public static void ParseBatchOutput()
         {
             const string containerName = "batch";
