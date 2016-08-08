@@ -475,7 +475,10 @@ namespace Recommendations
             }*/
         }
 
-        //Manages add operation.
+        /// <summary>
+        /// Manages add operation.
+        /// </summary>
+        /// <param name="rowNum"></param>
         public static void AddTrainingData(int rowNum)
         {
             string RecommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
@@ -495,7 +498,10 @@ namespace Recommendations
                 }
             }
         }
-        //Selects raw purchase data and inserts each row.
+
+        /// <summary>
+        /// Selects raw purchase data and inserts each row.
+        /// </summary>
         public static void SelectData(SqlConnection connection, int rowNum)
         {
             using (var command = new SqlCommand())
@@ -534,7 +540,10 @@ namespace Recommendations
                 Console.WriteLine("Inserted all rows of data");
             }
         }
-        //Insert a row into UsageData SQL table.
+
+        /// <summary>
+        /// Insert a row into UsageData SQL table.
+        /// </summary>
         public static void InsertRow(SqlConnection connection, string[] row)
         {
             using (var command = new SqlCommand())
@@ -564,7 +573,10 @@ namespace Recommendations
                 command.ExecuteNonQuery();
             }
         }
-        //Manages remove operation.
+
+        /// <summary>
+        /// Manages remove operation.
+        /// </summary>
         public static void RemoveTrainingData()
         {
             string RecommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
@@ -586,7 +598,10 @@ namespace Recommendations
                 }
             }
         }
-        //Deletes all raw data from PurchaseDataRaw table in Recommendations DB.
+
+        /// <summary>
+        /// Deletes all raw data from PurchaseDataRaw table in Recommendations DB.
+        /// </summary>
         public static void DeleteRawData(SqlConnection connection)
         {
             using (var command = new SqlCommand())
@@ -598,7 +613,10 @@ namespace Recommendations
                 Console.WriteLine("Deleted all data in PurchaseDataRaw.");
             }
         }
-        //Deletes all training data from UsageData table in Recommendations DB.
+
+        /// <summary>
+        /// Deletes all training data from UsageData table in Recommendations DB.
+        /// </summary>
         public static void DeleteUsageData(SqlConnection connection)
         {
             using (var command = new SqlCommand())
@@ -610,7 +628,10 @@ namespace Recommendations
                 Console.WriteLine("Deleted all data in UsageData.");
             }
         }
-        //Export catalog information to CSV file.
+
+        /// <summary>
+        /// Export catalog information to CSV file.
+        /// </summary>
         public static void CatalogToCSV()
         {
             string con = ConfigurationManager.ConnectionStrings["CatalogCS"].ConnectionString;
@@ -692,7 +713,10 @@ namespace Recommendations
 
             }
         }
-        //Export UsageData to CSV file.
+
+        /// <summary>
+        /// Export UsageData to CSV file.
+        /// </summary>
         public static void ExportToCSV()
         {
             string RecommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
@@ -741,7 +765,10 @@ namespace Recommendations
                 }
             }
         }
-        //Build input file from catalog CSV for getting batch recommendations.
+
+        /// <summary>
+        /// Creates input file for batch recommendations.
+        /// </summary>
         public static void CreateBatchFile()
         {
             
@@ -773,7 +800,10 @@ namespace Recommendations
                 file.WriteLine(json);
             }
         }
-        //Uploads batch input file into blob.
+
+        /// <summary>
+        /// Uploads batch input file into blob.
+        /// </summary>
         public static void UploadInputBlob()
         {
             string connectionString = ConfigurationManager.AppSettings["BlobConnectionString"];
