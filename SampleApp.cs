@@ -22,22 +22,19 @@ namespace Recommendations
     using AzureMLRecoSampleApp;
     using System;
     using System.IO;
-    using System.Net.Http;
     using System.Reflection;
     using System.Threading;
-    using Microsoft.WindowsAzure;
     using Microsoft.WindowsAzure.Storage;
     using Microsoft.WindowsAzure.Storage.Blob;
     using System.Configuration;
     using Newtonsoft.Json.Linq;
     using System.Collections.Generic;
-    using System.Linq;
     using System.Text;
-    using System.Threading.Tasks;
     using System.Data;
     using System.Data.SqlClient;
     using Newtonsoft.Json;
     using SQLTestScript;
+
     public class RecommendationsSampleApp
     {
         private static string AccountKey = "22fe1376df4444f3b75712ecc208b028"; // <---  Set to your API key here.
@@ -71,9 +68,9 @@ namespace Recommendations
                 Console.WriteLine("Enter 3 to delete all current models.");
                 Console.WriteLine("Enter 4 to delete a model by modelid.");
                 Console.WriteLine("Enter 5 to print all builds for a model.");
-                Console.WriteLine("Enter 6 to run batch job.");
+                Console.WriteLine("Enter 6 to run batch recommendations job.");
                 Console.WriteLine("Enter 7 to parse batch output.");
-                Console.WriteLine("Enter '8' to aggregate all raw purchase data into usage format.");
+                Console.WriteLine("Enter '8' to aggregate all raw purchase data into usage table.");
                 Console.WriteLine("Enter '9' to remove all raw and training data.");
                 Console.WriteLine("Enter '10' to export all usage data into a CSV file ('/Resources/usage.csv').");
                 Console.WriteLine("Enter '11' to export all product/category data to catalog CSV.");
@@ -429,7 +426,7 @@ namespace Recommendations
             string jsonOutput;
             string connectionString = ConfigurationManager.AppSettings["BlobConnectionString"];
             //Store parsed recommendations data.
-            Dictionary<int, List<int>> seedToRec = new Dictionary<int, List<int>>();
+            Dictionary<int, List<int>> recs = new Dictionary<int, List<int>>();
             int seedItem;
             List<int> seedRecs;
 
@@ -456,7 +453,7 @@ namespace Recommendations
                         Int32.TryParse(recommendation.items[0].itemId.ToString(), out itemId);
                         seedRecs.Add(itemId);
                     }
-                    seedToRec.Add(seedItem, seedRecs);
+                    recs.Add(seedItem, seedRecs);
                 }
             }
             catch(Exception e)
@@ -464,15 +461,52 @@ namespace Recommendations
                 Console.WriteLine("Error: " + e);
             }
 
-            /*foreach (KeyValuePair<int, List<int>> kvp in seedToRec)
+            foreach (KeyValuePair<int, List<int>> kvp in recs)
             {
-                Console.Write("Key = {0}, ", kvp.Key);
-                foreach(var rec in kvp.Value)
+                Console.Write("Key = {0}, {1}, {2}, {3}", kvp.Key, kvp.Value[0], kvp.Value[1], kvp.Value[2]);
+                /*foreach(var rec in kvp.Value)
                 {
                     Console.Write(rec + " ");
-                }
+                }*/
                 Console.WriteLine();
-            }*/
+            }
+
+            string RecommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
+
+            using (var connection = new SqlConnection(RecommendationsConnString))
+            {
+                connection.Open();
+                Console.WriteLine("Connection opened.");
+
+                try
+                {
+                   // StoreBatchRecommendations(recs);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("exception: {0}", ex.ToString());
+                }
+            }
+        }
+
+        public static void StoreBatchRecommendations(Dictionary<int, List<int>> recs)
+        {
+            DataTable table = new DataTable("ItemRecommendations");
+            DataColumn[] cols =
+            {
+                new DataColumn("ProductId", typeof(string)),
+                new DataColumn("RecOne", typeof(string)),
+                new DataColumn("RecTwo", typeof(string)),
+                new DataColumn("RecThree", typeof(string))
+            };
+            table.Columns.AddRange(cols);
+            table.PrimaryKey = new DataColumn[] { table.Columns["ProductId"] };
+            List<Object> rows = new List<Object>();
+            foreach(KeyValuePair<int, List<int>> kvp in recs)
+            {
+                rows.Add(new Object[] { kvp.Key, kvp.Value[0], kvp.Value[1], kvp.Value[2] });
+            }
+            
         }
 
         /// <summary>
@@ -731,10 +765,10 @@ namespace Recommendations
                     command.Connection = connection;
                     command.CommandText = "SELECT UserId, ProductId, Time, EventType FROM UsageData; ";
 
-                    var csv = new StringBuilder();
-                    var filePath = @"C:\Users\t-arjun\Documents\Visual Studio 2015\Projects\CSVGenerationScript\SQLTestScript\Resources\usage.csv";
+                    var resourcesDir = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Resources");
+                    string usageFileName = "usage.csv";
 
-                    using (var file = new StreamWriter(filePath))
+                    using (var file = new StreamWriter(Path.Combine(resourcesDir, usageFileName)))
                     {
                         using (SqlDataReader reader = command.ExecuteReader())
                         {
@@ -753,7 +787,7 @@ namespace Recommendations
 
                     Console.WriteLine("Printing content:");
                     string line = "";
-                    using (var reader = new StreamReader(filePath))
+                    using (var reader = new StreamReader(Path.Combine(resourcesDir, usageFileName)))
                     {
                         while ((line = reader.ReadLine()) != null)
                         {
