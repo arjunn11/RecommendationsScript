@@ -31,20 +31,23 @@ namespace Recommendations
     using System.Configuration;
     using Newtonsoft.Json.Linq;
     using System.Collections.Generic;
-
+    using System.Linq;
+    using System.Text;
+    using System.Threading.Tasks;
+    using System.Data;
+    using System.Data.SqlClient;
+    using Newtonsoft.Json;
+    using SQLTestScript;
     public class RecommendationsSampleApp
     {
         private static string AccountKey = "22fe1376df4444f3b75712ecc208b028"; // <---  Set to your API key here.
         private const string BaseUri = "https://westus.api.cognitive.microsoft.com/recommendations/v4.0";
         private static RecommendationsApiWrapper recommender = null;
-
+        
         /// <summary>
-        /// 1) Builds a recommendations model and upload catalog and usage data
-        /// 2) Triggers a model build and monitor the build operation status
-        /// 3) Sets the build as the active build for the model.
-        /// 4) Requests item recommendations
-        /// 5) Requests user recommendations
+        /// Console interface to manage backend processes and data for recommendations.
         /// </summary>
+        /// <param name="args"></param>
         public static void Main(string[] args)
         {
             if (String.IsNullOrEmpty(AccountKey))
@@ -64,13 +67,18 @@ namespace Recommendations
                 int input;
                 Console.WriteLine("Enter 0 to quit");
                 Console.WriteLine("Enter 1 to create a new model, upload data, and train model (create a recommendations build).");
-                Console.WriteLine("Enter 2 to print all current models");
-                Console.WriteLine("Enter 3 to delete all current models");
-                Console.WriteLine("Enter 4 to get single recommendation");
-                Console.WriteLine("Enter 5 to delete a model by modelid");
-                Console.WriteLine("Enter 6 to run batch job");
-                Console.WriteLine("Enter 7 to print all builds for a model");
-                Console.WriteLine("Enter 8 to parse batch output.");
+                Console.WriteLine("Enter 2 to print all current models.");
+                Console.WriteLine("Enter 3 to delete all current models.");
+                Console.WriteLine("Enter 4 to delete a model by modelid.");
+                Console.WriteLine("Enter 5 to print all builds for a model.");
+                Console.WriteLine("Enter 6 to run batch job.");
+                Console.WriteLine("Enter 7 to parse batch output.");
+                Console.WriteLine("Enter '8' to aggregate all raw purchase data into usage format.");
+                Console.WriteLine("Enter '9' to remove all raw and training data.");
+                Console.WriteLine("Enter '10' to export all usage data into a CSV file ('/Resources/usage.csv').");
+                Console.WriteLine("Enter '11' to export all product/category data to catalog CSV.");
+                Console.WriteLine("Enter '12' to generate batchInput.json.");
+                Console.WriteLine("Enter '13' to upload batchInput.json file into blob storage.");
 
                 while (true)
                 {
@@ -99,12 +107,14 @@ namespace Recommendations
                             DeleteAllModels();
                             break;
                         case 4:
-                            GetRecommendationsSingleRequest(recommender, modelId, buildId);
+                            Console.WriteLine("enter a model id");
+                            modelId = Console.ReadLine();
+                            recommender.DeleteModel(modelId);
                             break;
                         case 5:
                             Console.WriteLine("enter a model id");
                             modelId = Console.ReadLine();
-                            recommender.DeleteModel(modelId);
+                            PrintAllBuilds(modelId);
                             break;
                         case 6:
                             /*Console.WriteLine("enter model id");
@@ -120,13 +130,25 @@ namespace Recommendations
                             GetRecommendationsBatch(recommender, modelId, buildId);
                             break;
                         case 7:
-                            Console.WriteLine("enter a model id");
-                            modelId = Console.ReadLine();
-                            PrintAllBuilds(modelId);
-                            break;
-                        case 8:
                             ParseBatchOutput();
                             break;
+                        case 8:
+                            Console.WriteLine("What row to start aggregating data?");
+                            int rowNum;
+                            while (true)
+                            {
+                                if (Int32.TryParse(Console.ReadLine(), out rowNum))
+                                    break;
+                                else
+                                    Console.WriteLine("Invalid input. Try again.");
+                            }
+                            AddTrainingData(rowNum);//Aggregates all raw purchase data into usage format.
+                            break;
+                        case 9: RemoveTrainingData(); break;
+                        case 10: ExportToCSV(); break;
+                        case 11: CatalogToCSV(); break;
+                        case 12: CreateBatchFile(); break;
+                        case 13: UploadInputBlob(); break;
                     }
                 }
                 catch (Exception e)
@@ -138,6 +160,9 @@ namespace Recommendations
             }
         }
 
+        /// <summary>
+        /// Deletes all models associated with specified Cognitive Services account.
+        /// </summary>
         public static void DeleteAllModels()
         {
             recommender = new RecommendationsApiWrapper(AccountKey, BaseUri);
@@ -156,6 +181,9 @@ namespace Recommendations
 
         }
 
+        /// <summary>
+        /// Prints all models in Cognitive Services account.
+        /// </summary>
         public static void PrintAllModels()
         {
             recommender = new RecommendationsApiWrapper(AccountKey, BaseUri);
@@ -173,6 +201,10 @@ namespace Recommendations
             }
         }
 
+        /// <summary>
+        /// Print all builds for a given model.
+        /// </summary>
+        /// <param name="modelId"></param>
         public static void PrintAllBuilds(string modelId)
         {
             recommender = new RecommendationsApiWrapper(AccountKey, BaseUri);
@@ -274,55 +306,6 @@ namespace Recommendations
             #endregion
 
             return buildId;
-        }
-
-        /// <summary>
-        /// Shows how to get item-to-item recommendations and user-to-item-recommendations
-        /// </summary>
-        /// <param name="recommender">Wrapper that maintains API key</param>
-        /// <param name="modelId">Model ID</param>
-        /// <param name="buildId">Build ID</param>
-        public static void GetRecommendationsSingleRequest(RecommendationsApiWrapper recommender, string modelId, long buildId)
-        {
-            // Get item to item recommendations. (I2I)
-            Console.WriteLine();
-            Console.WriteLine("Getting Item to Item for #1");
-            const string itemIds = "1";
-            var itemSets = recommender.GetRecommendations(modelId, buildId, itemIds, 6);
-            if (itemSets.RecommendedItemSetInfo != null)
-            {
-                foreach (RecommendedItemSetInfo recoSet in itemSets.RecommendedItemSetInfo)
-                {
-                    foreach (var item in recoSet.Items)
-                    {
-                        Console.WriteLine("Item id: {0} \n Item name: {1} \t (Rating  {2})", item.Id, item.Name, recoSet.Rating);
-                    }
-                }
-            }
-            else
-            {
-                Console.WriteLine("No recommendations found.");
-            }
-
-            // Now let's get a user recommendation (U2I)
-            Console.WriteLine();
-            Console.WriteLine("Getting User Recommendations for User: user18537@example.com");
-            string userId = "user18537@example.com";
-            itemSets = recommender.GetUserRecommendations(modelId, buildId, userId, 6);
-            if (itemSets.RecommendedItemSetInfo != null)
-            {
-                foreach (RecommendedItemSetInfo recoSet in itemSets.RecommendedItemSetInfo)
-                {
-                    foreach (var item in recoSet.Items)
-                    {
-                        Console.WriteLine("Item id: {0} \n Item name: {1} \t (Rating  {2})", item.Id, item.Name, recoSet.Rating);
-                    }
-                }
-            }
-            else
-            {
-                Console.WriteLine("No recommendations found.");
-            }
         }
 
         /// <summary>
@@ -434,28 +417,33 @@ namespace Recommendations
             }
             #endregion
         }
-        //Parse output JSON, extract recommendations (ProductIds), batch upload to SQL table.
+
+        /// <summary>
+        /// Parse output JSON, extract recommendations (ProductIds), batch upload to SQL table.
+        /// </summary>
         public static void ParseBatchOutput()
         {
+            //Data for reading batch output file.
             const string containerName = "batch";
             const string blobName = "batchOutput.json";
             string jsonOutput;
             string connectionString = ConfigurationManager.AppSettings["BlobConnectionString"];
-            var sourceStorageAccount = CloudStorageAccount.Parse(connectionString);
-            BlobHelper bh = new BlobHelper(sourceStorageAccount, containerName);
-            if(!bh.GetBlob(containerName, blobName, out jsonOutput))
-            {
-                Console.WriteLine("Failed to read blob - see error message.");
-                return;
-            }
-
-            Console.WriteLine("Json output: " + jsonOutput);
-
+            //Store parsed recommendations data.
             Dictionary<int, List<int>> seedToRec = new Dictionary<int, List<int>>();
             int seedItem;
             List<int> seedRecs;
+
             try
             {
+                //Read batch output file from blob storage.
+                var sourceStorageAccount = CloudStorageAccount.Parse(connectionString);
+                BlobHelper bh = new BlobHelper(sourceStorageAccount, containerName);
+                if (!bh.GetBlob(containerName, blobName, out jsonOutput))
+                {
+                    Console.WriteLine("Failed to read blob - see error message.");
+                    return;
+                }
+                //Parse batch output JSON and store recommendations.
                 dynamic output = JObject.Parse(jsonOutput);
                 foreach (var result in output.results)
                 {
@@ -464,7 +452,7 @@ namespace Recommendations
                     foreach (var recommendation in result.recommendations)
                     {
                         int itemId;
-                        //parse from JValue to int
+                        //Parse from JValue to int.
                         Int32.TryParse(recommendation.items[0].itemId.ToString(), out itemId);
                         seedRecs.Add(itemId);
                     }
@@ -476,15 +464,343 @@ namespace Recommendations
                 Console.WriteLine("Error: " + e);
             }
 
-            foreach (KeyValuePair<int, List<int>> kvp in seedToRec)
+            /*foreach (KeyValuePair<int, List<int>> kvp in seedToRec)
             {
-                //textBox3.Text += ("Key = {0}, Value = {1}", kvp.Key, kvp.Value);
                 Console.Write("Key = {0}, ", kvp.Key);
                 foreach(var rec in kvp.Value)
                 {
                     Console.Write(rec + " ");
                 }
                 Console.WriteLine();
+            }*/
+        }
+
+        //Manages add operation.
+        public static void AddTrainingData(int rowNum)
+        {
+            string RecommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
+
+            using (var connection = new SqlConnection(RecommendationsConnString))
+            {
+                connection.Open();
+                Console.WriteLine("Connection opened.");
+
+                try
+                {
+                    SelectData(connection, rowNum);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("exception: {0}", ex.ToString());
+                }
+            }
+        }
+        //Selects raw purchase data and inserts each row.
+        public static void SelectData(SqlConnection connection, int rowNum)
+        {
+            using (var command = new SqlCommand())
+            {
+                command.Connection = connection;//Set connection used by this instance of SqlCommand
+                command.CommandType = CommandType.Text;//SQL Text Command
+                command.CommandText = @"SELECT UserId, ProductId, Time
+                                        FROM PurchaseDataRaw WHERE UniqueId >= (@StartRow); ";
+                //Set start row:
+                SqlParameter parameter;
+                parameter = new SqlParameter("@StartRow", SqlDbType.Int);
+                parameter.Value = rowNum;
+                command.Parameters.Add(parameter);
+
+                List<string[]> data = new List<string[]>();//Compile all new SQL data into data structure.
+
+                using (SqlDataReader reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        DateTime dt = reader.GetDateTime(2);//Format datetime into a string
+                        string dtString = String.Format("{0}/{1}/{2}T{3}:{4}:{5}", dt.Year.ToString("D4"), dt.Month.ToString("D2"),
+                            dt.Day.ToString("D2"), dt.Hour.ToString("D2"), dt.Minute.ToString("D2"), dt.Second.ToString("D2"));
+                        string UserId = reader.GetString(0).Replace('@', '_').Replace('.', '_');
+                        string[] temp = { UserId, reader.GetString(1), dtString };
+                        data.Add(temp);
+                        Console.WriteLine("{0}\t{1}\t{2}", UserId, reader.GetString(1), dtString);
+                    }
+                }
+
+                //Insert each row of data.
+                foreach (string[] row in data)
+                {
+                    InsertRow(connection, row);
+                }
+                Console.WriteLine("Inserted all rows of data");
+            }
+        }
+        //Insert a row into UsageData SQL table.
+        public static void InsertRow(SqlConnection connection, string[] row)
+        {
+            using (var command = new SqlCommand())
+            {
+                command.Connection = connection;
+                command.CommandType = CommandType.Text;
+                command.CommandText = @"INSERT INTO UsageData (UserId, ProductId, Time, EventType)
+                                           VALUES (@UserId, @ProductId, @Time, @EventType); ";
+
+                SqlParameter parameter;
+                parameter = new SqlParameter("@UserId", SqlDbType.NVarChar, 50);
+                parameter.Value = row[0];
+                command.Parameters.Add(parameter);
+
+                parameter = new SqlParameter("@ProductId", SqlDbType.NVarChar, 50);
+                parameter.Value = row[1];
+                command.Parameters.Add(parameter);
+
+                parameter = new SqlParameter("@Time", SqlDbType.NVarChar, 50);
+                parameter.Value = row[2];
+                command.Parameters.Add(parameter);
+
+                parameter = new SqlParameter("@EventType", SqlDbType.NVarChar, 10);
+                parameter.Value = "Purchase";//MODIFY AFTER ADDING CLICK EVENTS
+                command.Parameters.Add(parameter);
+
+                command.ExecuteNonQuery();
+            }
+        }
+        //Manages remove operation.
+        public static void RemoveTrainingData()
+        {
+            string RecommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
+
+            using (var connection = new SqlConnection(RecommendationsConnString))
+            {
+
+                connection.Open();
+                Console.WriteLine("Connection opened.");
+
+                try
+                {
+                    DeleteRawData(connection);
+                    DeleteUsageData(connection);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("exception: {0}", ex.ToString());
+                }
+            }
+        }
+        //Deletes all raw data from PurchaseDataRaw table in Recommendations DB.
+        public static void DeleteRawData(SqlConnection connection)
+        {
+            using (var command = new SqlCommand())
+            {
+                command.Connection = connection;
+                command.CommandType = CommandType.Text;
+                command.CommandText = @"TRUNCATE TABLE PurchaseDataRaw; ";
+                command.ExecuteNonQuery();
+                Console.WriteLine("Deleted all data in PurchaseDataRaw.");
+            }
+        }
+        //Deletes all training data from UsageData table in Recommendations DB.
+        public static void DeleteUsageData(SqlConnection connection)
+        {
+            using (var command = new SqlCommand())
+            {
+                command.Connection = connection;//Set connection used by this instance of SqlCommand
+                command.CommandType = CommandType.Text;//SQL Text Command
+                command.CommandText = @"TRUNCATE TABLE UsageData; ";
+                command.ExecuteNonQuery();
+                Console.WriteLine("Deleted all data in UsageData.");
+            }
+        }
+        //Export catalog information to CSV file.
+        public static void CatalogToCSV()
+        {
+            string con = ConfigurationManager.ConnectionStrings["CatalogCS"].ConnectionString;
+
+            using (var connection = new SqlConnection(con))
+            {
+                connection.Open();
+                List<string[]> catalog = new List<string[]>();
+                var csv = new StringBuilder();
+                var filePath = @"C:\Users\t-arjun\Documents\Visual Studio 2015\Projects\CSVGenerationScript\SQLTestScript\Resources\catalog.csv";
+
+                using (var command = new SqlCommand())
+                {
+                    command.CommandType = CommandType.Text;
+                    command.Connection = connection;
+                    command.CommandText = "SELECT ProductId, ProductName, Description, CategoryId FROM Products;";
+
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            var ProductId = reader.GetInt32(0).ToString();
+                            var ProductName = reader.GetString(1);
+                            var Description = reader.GetString(2);
+                            var CategoryId = reader.GetInt32(3).ToString();
+                            string[] temp = { ProductId, ProductName, CategoryId, Description };
+                            catalog.Add(temp);
+                        }
+                    }
+                }
+
+                Dictionary<int, string> categories = new Dictionary<int, string>();
+
+                using (var command = new SqlCommand())
+                {
+                    command.CommandType = CommandType.Text;
+                    command.Connection = connection;
+                    command.CommandText = "SELECT CategoryID, CategoryName FROM Categories; ";
+
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            categories.Add(reader.GetInt32(0), reader.GetString(1));
+                        }
+                    }
+                }
+
+                using (var file = new StreamWriter(filePath))
+                {
+                    foreach (string[] row in catalog)
+                    {
+                        try
+                        {
+                            categories.TryGetValue(Convert.ToInt32(row[2]), out row[2]);
+                            var tempLine = string.Format("{0},{1},{2},{3}", row[0], row[1], row[2], row[3]);
+                            file.WriteLine(tempLine);
+                            file.Flush();
+                        }
+                        catch (KeyNotFoundException)
+                        {
+                            Console.WriteLine("category id not found. breaking.");
+                            break;
+                        }
+                    }
+                }
+
+                Console.WriteLine("Printing content:");
+                string line = "";
+                using (var reader = new StreamReader(filePath))
+                {
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        Console.WriteLine(line);
+                    }
+                }
+
+                Console.WriteLine("CSV generated.");
+
+            }
+        }
+        //Export UsageData to CSV file.
+        public static void ExportToCSV()
+        {
+            string RecommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
+
+            using (var connection = new SqlConnection(RecommendationsConnString))
+            {
+                connection.Open();
+                Console.WriteLine("Connection opened.");
+                using (var command = new SqlCommand())
+                {
+                    command.CommandType = CommandType.Text;
+                    command.Connection = connection;
+                    command.CommandText = "SELECT UserId, ProductId, Time, EventType FROM UsageData; ";
+
+                    var csv = new StringBuilder();
+                    var filePath = @"C:\Users\t-arjun\Documents\Visual Studio 2015\Projects\CSVGenerationScript\SQLTestScript\Resources\usage.csv";
+
+                    using (var file = new StreamWriter(filePath))
+                    {
+                        using (SqlDataReader reader = command.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                var UserId = reader.GetString(0);
+                                var ProductId = reader.GetString(1);
+                                var Time = reader.GetString(2);
+                                var EventType = reader.GetString(3);
+                                var tempLine = string.Format("{0},{1},{2},{3}", UserId, ProductId, Time, EventType);
+                                file.WriteLine(tempLine);
+                                file.Flush();
+                            }
+                        }
+                    }
+
+                    Console.WriteLine("Printing content:");
+                    string line = "";
+                    using (var reader = new StreamReader(filePath))
+                    {
+                        while ((line = reader.ReadLine()) != null)
+                        {
+                            Console.WriteLine(line);
+                        }
+                    }
+
+                    Console.WriteLine("CSV generated.");
+                }
+            }
+        }
+        //Build input file from catalog CSV for getting batch recommendations.
+        public static void CreateBatchFile()
+        {
+            
+            var batchInput = new BatchFile()
+            {
+                requests = new List<ProductList>() { }
+            };
+            //Read each id into batch object.
+            var filePath = @"C:\Users\t-arjun\Documents\Visual Studio 2015\Projects\CSVGenerationScript\SQLTestScript\Resources\catalog.csv";
+            using (var reader = new StreamReader(filePath))
+            {
+                while (!reader.EndOfStream)
+                {
+                    var line = reader.ReadLine();
+                    var values = line.Split(',');
+                    var list = new ProductList()
+                    {
+                        SeedItems = new List<string>() { values[0] }
+                    };
+                    batchInput.requests.Add(list);
+                }
+            }
+            //Serialize batch object into JSON
+            string json = JsonConvert.SerializeObject(batchInput, Formatting.Indented);
+            //Write to batchInput.json file.
+            filePath = @"C:\Users\t-arjun\Documents\Visual Studio 2015\Projects\CSVGenerationScript\SQLTestScript\Resources\batchInput.json";
+            using (StreamWriter file = File.CreateText(filePath))
+            {
+                file.WriteLine(json);
+            }
+        }
+        //Uploads batch input file into blob.
+        public static void UploadInputBlob()
+        {
+            string connectionString = ConfigurationManager.AppSettings["BlobConnectionString"];
+            try
+            {
+                //Retrieve storage account from conection string.
+                CloudStorageAccount storageAccount = CloudStorageAccount.Parse(connectionString);
+                //Create the blob client.
+                CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
+                //Retrieve reference to a container.
+                CloudBlobContainer container = blobClient.GetContainerReference("batch");
+                //Create the container if it doesn't already exist.
+                container.CreateIfNotExists();
+                //Retrieve reference to block blob.
+                CloudBlockBlob blockBlob = container.GetBlockBlobReference("batchInput.json");
+                //Get file path.
+                var resourcesDir = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Resources");
+                string inputFileName = "batchInput.json";
+                //Create or overwrite "input" blob with contents from file.
+                using (var fileStream = System.IO.File.OpenRead(Path.Combine(resourcesDir, inputFileName)))
+                {
+                    blockBlob.UploadFromStream(fileStream);
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("You encountered an error: {0}", e);
             }
         }
     }
