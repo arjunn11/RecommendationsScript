@@ -480,7 +480,7 @@ namespace Recommendations
 
                 try
                 {
-                   // StoreBatchRecommendations(recs);
+                   StoreBatchRecommendations(recs);
                 }
                 catch (Exception ex)
                 {
