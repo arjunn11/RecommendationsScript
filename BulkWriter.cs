@@ -19,7 +19,7 @@ namespace AzureMLRecoSampleApp
 
         private readonly string tableName;
         private readonly Dictionary<string, string> tableMap;
-        private readonly string connString;
+        private readonly string conString;
 
         public BulkWriter(string tableName,
                                     Dictionary<string, string> tableMap)
@@ -27,8 +27,7 @@ namespace AzureMLRecoSampleApp
             this.tableName = tableName;
             this.tableMap = tableMap;
 
-            connString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
-
+            conString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
         }
 
         public void WriteWithRetries(DataTable datatable)
@@ -45,10 +44,8 @@ namespace AzureMLRecoSampleApp
             }
             catch (Exception ex)
             {
-
-                //TODO: Add logging logic
-
-                Trace.TraceError(ex.ToString());
+                Console.WriteLine(ex.ToString());
+                //Trace.TraceError(ex.ToString());
                 throw;
             }
         }
@@ -56,19 +53,15 @@ namespace AzureMLRecoSampleApp
         private void Write(DataTable datatable)
         {
             // connect to SQL
-            using (var connection =
-                new SqlConnection(connString))
+            using (var connection = new SqlConnection(conString))
             {
                 var bulkCopy = MakeSqlBulkCopy(connection);
-
                 // set the destination table name
                 connection.Open();
-
                 using (var dataTableReader = new DataTableReader(datatable))
                 {
                     bulkCopy.WriteToServer(dataTableReader);
                 }
-
                 connection.Close();
             }
         }
