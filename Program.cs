@@ -1,23 +1,4 @@
-﻿/**************************************************************************************************
- * This sample shows how to use the Recommendations API. You can find more details on the 
- * Recommendations API and other Cognitive Services at http://go.microsoft.com/fwlink/?LinkID=759709.
- * 
- * The Recommendations API identifies consumption patterns from your transaction information 
- * in order to provide recommendations. These recommendations can help your customers more 
- * easily discover items that they may be interested in.  By showing your customers products that 
- * they are more likely to be interested in, you will, in turn, increase your sales.
- * 
- *  Before you run the application:
- *  1. Sign up for the Recommendations API service and get an API Key.
- *     (http://go.microsoft.com/fwlink/?LinkId=761106 )
- *     
- *  2. Set the AccountKey variable in the RecommendationsSampleApp to the key you got.
- *  
- *  3. Verify the endpoint Uri you got when you subscribed matches the BaseUri as it may 
- *     be different if you selected a different data center.
- *************************************************************************************************/
-
-namespace Recommendations
+﻿namespace Recommendations
 {
     using AzureMLRecoSampleApp;
     using System;
