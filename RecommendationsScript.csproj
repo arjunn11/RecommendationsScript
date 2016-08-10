@@ -168,7 +168,7 @@
     <Compile Include="BulkWriter.cs" />
     <Compile Include="Helpers.cs" />
     <Compile Include="RecommendationsApiWrapper.cs" />
-    <Compile Include="SampleApp.cs" />
+    <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

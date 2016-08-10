@@ -66,8 +66,8 @@ namespace Recommendations
                 int input;
                 Console.WriteLine("Enter 1 to aggregate all raw purchase data into usage table.");
                 Console.WriteLine("Enter 2 to remove all raw/usage data.");
-                Console.WriteLine("Enter 3 to export usage data into Resources/usage.csv.");
-                Console.WriteLine("Enter 4 to export product data into Resources/catalog.csv.");
+                Console.WriteLine("Enter 3 to export usage data into usage.csv file.");
+                Console.WriteLine("Enter 4 to export product data into catalog.csv file.");
                 Console.WriteLine("Enter 5 to create a new model, upload data, and train model (create a recommendations build).");
                 Console.WriteLine("Enter 6 to print all current models.");
                 Console.WriteLine("Enter 7 to delete all current models.");
@@ -107,8 +107,13 @@ namespace Recommendations
                         case 2: RemoveTrainingData(); break;
                         case 3: UsageToCSV(); break;
                         case 4: CatalogToCSV(); break;
-                        case 5: CreateBatchFile(); break;
-                        case 6: UploadInputBlob(); break;
+                        case 5:
+                            Console.WriteLine("Enter model name:");
+                            modelName = Console.ReadLine();
+                            modelId = CreateModel(modelName);
+                            buildId = UploadDataAndTrainModel(modelId, BuildType.Recommendation);
+                            break;
+                        case 6: PrintAllModels(); break;
                         case 7: DeleteAllModels(); break;
                         case 8:
                             Console.WriteLine("Enter a model id:");
@@ -120,13 +125,8 @@ namespace Recommendations
                             modelId = Console.ReadLine();
                             PrintAllBuilds(modelId);
                             break;
-                        case 10:
-                            Console.WriteLine("Enter model name:");
-                            modelName = Console.ReadLine();
-                            modelId = CreateModel(modelName);
-                            buildId = UploadDataAndTrainModel(modelId, BuildType.Recommendation);
-                            break;
-                        case 11: PrintAllModels(); break;
+                        case 10: CreateBatchInputFile(); break;
+                        case 11: UploadInputBlob(); break;
                         case 12:
                             /*Console.WriteLine("enter model id");
                             modelId = Console.ReadLine();
@@ -141,6 +141,7 @@ namespace Recommendations
                             GetRecommendationsBatch(recommender, modelId, buildId);
                             break;
                         case 13: ParseBatchOutput(); break;
+                        case 14: test(); break;
 
                     }
                 }
@@ -150,6 +151,21 @@ namespace Recommendations
                 }
                 Console.WriteLine("Finished operation(s). \n");
                 if (quit) break;
+            }
+        }
+
+        /// <summary>
+        /// Garbage method for test purposes. DELETE.
+        /// </summary>
+        public static void test()
+        {
+            var resourcesDir = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Resources");
+            Console.WriteLine("Importing catalog files...");
+            foreach (string catalog in Directory.GetFiles(resourcesDir, "catalog.csv"))
+            {
+                var catalogFile = new FileInfo(catalog);
+                Console.WriteLine("catalog: " + catalog);
+                Console.WriteLine("file info " + catalogFile);
             }
         }
 
@@ -448,73 +464,6 @@ namespace Recommendations
         }
 
         /// <summary>
-        /// Creates input file for batch recommendations.
-        /// </summary>
-        public static void CreateBatchFile()
-        {
-
-            var batchInput = new BatchFile()
-            {
-                requests = new List<ProductList>() { }
-            };
-            //Read each id into batch object.
-            var filePath = @"C:\Users\t-arjun\Documents\Visual Studio 2015\Projects\CSVGenerationScript\SQLTestScript\Resources\catalog.csv";
-            using (var reader = new StreamReader(filePath))
-            {
-                while (!reader.EndOfStream)
-                {
-                    var line = reader.ReadLine();
-                    var values = line.Split(',');
-                    var list = new ProductList()
-                    {
-                        SeedItems = new List<string>() { values[0] }
-                    };
-                    batchInput.requests.Add(list);
-                }
-            }
-            //Serialize batch object into JSON
-            string json = JsonConvert.SerializeObject(batchInput, Formatting.Indented);
-            //Write to batchInput.json file.
-            filePath = @"C:\Users\t-arjun\Documents\Visual Studio 2015\Projects\CSVGenerationScript\SQLTestScript\Resources\batchInput.json";
-            using (StreamWriter file = File.CreateText(filePath))
-            {
-                file.WriteLine(json);
-            }
-        }
-
-        /// <summary>
-        /// Uploads batch input file into blob.
-        /// </summary>
-        public static void UploadInputBlob()
-        {
-            string connectionString = ConfigurationManager.AppSettings["BlobConnectionString"];
-            try
-            {
-                //Retrieve storage account from conection string.
-                CloudStorageAccount storageAccount = CloudStorageAccount.Parse(connectionString);
-                //Create the blob client.
-                CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
-                //Retrieve reference to a container.
-                CloudBlobContainer container = blobClient.GetContainerReference("batch");
-                //Create the container if it doesn't already exist.
-                container.CreateIfNotExists();
-                //Retrieve reference to block blob.
-                CloudBlockBlob blockBlob = container.GetBlockBlobReference("batchInput.json");
-                //Get file path.
-                var resourcesDir = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Resources");
-                string inputFileName = "batchInput.json";
-                //Create or overwrite "input" blob with contents from file.
-                using (var fileStream = System.IO.File.OpenRead(Path.Combine(resourcesDir, inputFileName)))
-                {
-                    blockBlob.UploadFromStream(fileStream);
-                }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("You encountered an error: {0}", e);
-            }
-        }
-        /// <summary>
         /// Deletes all models associated with specified Cognitive Services account.
         /// </summary>
         public static void DeleteAllModels()
@@ -655,6 +604,76 @@ namespace Recommendations
             #endregion
 
             return buildId;
+        }
+
+        /// <summary>
+        /// Creates input file for batch recommendations.
+        /// </summary>
+        public static void CreateBatchInputFile()
+        {
+
+            var batchInput = new BatchFile()
+            {
+                requests = new List<ProductList>() { }
+            };
+            //Read each id into batch object.
+            var resourcesDir = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Resources");
+            string filePath = Path.Combine(resourcesDir, "catalog.csv");
+
+            using (var reader = new StreamReader(filePath))
+            {
+                while (!reader.EndOfStream)
+                {
+                    var line = reader.ReadLine();
+                    var values = line.Split(',');
+                    var list = new ProductList()
+                    {
+                        SeedItems = new List<string>() { values[0] }
+                    };
+                    batchInput.requests.Add(list);
+                }
+            }
+            //Serialize batch object into JSON
+            string json = JsonConvert.SerializeObject(batchInput, Formatting.Indented);
+            //Write to batchInput.json file.
+            filePath = Path.Combine(resourcesDir, "batchInput.json");
+            using (StreamWriter file = File.CreateText(filePath))
+            {
+                file.WriteLine(json);
+            }
+        }
+
+        /// <summary>
+        /// Uploads batch input file into blob.
+        /// </summary>
+        public static void UploadInputBlob()
+        {
+            string connectionString = ConfigurationManager.AppSettings["BlobConnectionString"];
+            try
+            {
+                //Retrieve storage account from conection string.
+                CloudStorageAccount storageAccount = CloudStorageAccount.Parse(connectionString);
+                //Create the blob client.
+                CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
+                //Retrieve reference to a container.
+                CloudBlobContainer container = blobClient.GetContainerReference("batch");
+                //Create the container if it doesn't already exist.
+                container.CreateIfNotExists();
+                //Retrieve reference to block blob.
+                CloudBlockBlob blockBlob = container.GetBlockBlobReference("batchInput.json");
+                //Get file path.
+                var resourcesDir = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Resources");
+                string inputFileName = "batchInput.json";
+                //Create or overwrite "input" blob with contents from file.
+                using (var fileStream = System.IO.File.OpenRead(Path.Combine(resourcesDir, inputFileName)))
+                {
+                    blockBlob.UploadFromStream(fileStream);
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("You encountered an error: {0}", e);
+            }
         }
 
         /// <summary>
@@ -839,6 +858,7 @@ namespace Recommendations
         public static void StoreBatchRecommendations(Dictionary<int, List<int>> recs, SqlConnection connection)
         {
             DataTable table = new DataTable("ItemRecommendations");
+            //Add columns for datatable schema.
             DataColumn[] cols =
             {
                 new DataColumn("UniqueId", typeof(int)) {AutoIncrement = true, AutoIncrementSeed = 1, AutoIncrementStep = 1, AllowDBNull = false},
@@ -848,9 +868,9 @@ namespace Recommendations
                 new DataColumn("RecThree", typeof(string)) {AllowDBNull = false }
             };
             table.Columns.AddRange(cols);
-            //table.PrimaryKey = new DataColumn[] { table.Columns["ProductId"] };
-            List<Object> rows = new List<Object>();
 
+            List<Object> rows = new List<Object>();
+            //Add each row of data to datatable.
             foreach (KeyValuePair<int, List<int>> kvp in recs)
             {
                 DataRow row = table.NewRow();
@@ -868,6 +888,7 @@ namespace Recommendations
                 table.Rows.Add(row);
             }
 
+            //Class to manage SqlBulkCopy operation. Handles transient faults.
             var bulk = new BulkWriter("dbo.ItemRecommendations", new Dictionary<string, string>
             {
                 {"ProductId", "ProductId" },
@@ -875,17 +896,7 @@ namespace Recommendations
                 {"RecTwo", "RecTwo" },
                 {"RecThree", "RecThree" }
             });
-
             bulk.WriteWithRetries(table);
-
-            /*using (var bulkCopy = new SqlBulkCopy(connection))
-            {
-                bulkCopy.DestinationTableName = "ItemRecommendations";
-                using (var dataTableReader = new DataTableReader(table))
-                {
-                    bulkCopy.WriteToServer(dataTableReader);
-                }
-            }*/
         }
     }
 }
