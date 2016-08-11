@@ -169,7 +169,6 @@
   <ItemGroup>
     <Compile Include="BatchFile.cs" />
     <Compile Include="BlobHelper.cs" />
-    <Compile Include="BulkWriter.cs" />
     <Compile Include="Helpers.cs" />
     <Compile Include="RecommendationsApiWrapper.cs" />
     <Compile Include="Program.cs" />
