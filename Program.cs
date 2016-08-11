@@ -195,6 +195,8 @@
                 }
             }
 
+            DeleteRawData(connection);
+
             //Format data into DataTable object for bulk merge (upsert) operation.
             DataTable table = new DataTable("UsageData");
             DataColumn[] cols =
@@ -227,7 +229,7 @@
             bulk.RetryInterval = new TimeSpan(100);
             bulk.BulkInsert(table);
 
-            Console.WriteLine("Inserted all usage data");
+            Console.WriteLine("Inserted all usage data.");
         }
 
         /// <summary>
