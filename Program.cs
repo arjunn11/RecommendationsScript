@@ -15,6 +15,7 @@
     using System.Data.SqlClient;
     using Newtonsoft.Json;
     using SQLTestScript;
+    using Z.BulkOperations;
 
     public class RecommendationsSampleApp
     {
@@ -83,9 +84,9 @@
                                 else
                                     Console.WriteLine("Invalid input. Try again.");
                             }
-                            AddTrainingData(rowNum);//Aggregates all raw purchase data into usage format.
+                            InsertUsageDataHelper(rowNum);//Aggregates all raw purchase data into usage format.
                             break;
-                        case 2: RemoveTrainingData(); break;
+                        case 2: RemoveAllData(); break;
                         case 3: UsageToCSV(); break;
                         case 4: CatalogToCSV(); break;
                         case 5:
@@ -122,8 +123,6 @@
                             GetRecommendationsBatch(recommender, modelId, buildId);
                             break;
                         case 13: ParseBatchOutput(); break;
-                        case 14: test(); break;
-
                     }
                 }
                 catch (Exception e)
@@ -136,25 +135,10 @@
         }
 
         /// <summary>
-        /// Garbage method for test purposes. DELETE.
-        /// </summary>
-        public static void test()
-        {
-            var resourcesDir = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Resources");
-            Console.WriteLine("Importing catalog files...");
-            foreach (string catalog in Directory.GetFiles(resourcesDir, "catalog.csv"))
-            {
-                var catalogFile = new FileInfo(catalog);
-                Console.WriteLine("catalog: " + catalog);
-                Console.WriteLine("file info " + catalogFile);
-            }
-        }
-
-        /// <summary>
-        /// Manages add operation.
+        /// Manages insert operation.
         /// </summary>
         /// <param name="rowNum"></param>
-        public static void AddTrainingData(int rowNum)
+        public static void InsertUsageDataHelper(int rowNum)
         {
             string RecommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
 
@@ -165,7 +149,7 @@
 
                 try
                 {
-                    SelectData(connection, rowNum);
+                    InsertUsageData(connection, rowNum);
                 }
                 catch (Exception ex)
                 {
@@ -177,8 +161,13 @@
         /// <summary>
         /// Selects raw purchase data and inserts each row into [Recommendations.dbo.Usage].
         /// </summary>
-        public static void SelectData(SqlConnection connection, int rowNum)
+        public static void InsertUsageData(SqlConnection connection, int rowNum)
         {
+            //Delete old usage data.
+            DeleteUsageData(connection);
+            //Store all new usage data in list.
+            List<string[]> data = new List<string[]>();//Compile all new SQL data into data structure.
+            //Select new usage data and bulk merge into SQL.
             using (var command = new SqlCommand())
             {
                 command.Connection = connection;//Set connection used by this instance of SqlCommand
@@ -190,8 +179,6 @@
                 parameter = new SqlParameter("@StartRow", SqlDbType.Int);
                 parameter.Value = rowNum;
                 command.Parameters.Add(parameter);
-
-                List<string[]> data = new List<string[]>();//Compile all new SQL data into data structure.
 
                 using (SqlDataReader reader = command.ExecuteReader())
                 {
@@ -206,53 +193,47 @@
                         Console.WriteLine("{0}\t{1}\t{2}", UserId, reader.GetString(1), dtString);
                     }
                 }
-
-                //Insert each row of data.
-                foreach (string[] row in data)
-                {
-                    InsertRow(connection, row);
-                }
-                Console.WriteLine("Inserted all rows of data");
             }
-        }
 
-        /// <summary>
-        /// Insert a row into [Recommendations.dbo.Usage].
-        /// </summary>
-        public static void InsertRow(SqlConnection connection, string[] row)
-        {
-            using (var command = new SqlCommand())
+            //Format data into DataTable object for bulk merge (upsert) operation.
+            DataTable table = new DataTable("UsageData");
+            DataColumn[] cols =
             {
-                command.Connection = connection;
-                command.CommandType = CommandType.Text;
-                command.CommandText = @"INSERT INTO UsageData (UserId, ProductId, Time, EventType)
-                                           VALUES (@UserId, @ProductId, @Time, @EventType); ";
+                    new DataColumn("UniqueId", typeof(int)) {AutoIncrement = true, AutoIncrementSeed = 1, AutoIncrementStep = 1, AllowDBNull = false},
+                    new DataColumn("UserId", typeof(string)) {AllowDBNull = false },
+                    new DataColumn("ProductId", typeof(string)) {AllowDBNull = false },
+                    new DataColumn("Time", typeof(string)) {AllowDBNull = false },
+                    new DataColumn("EventType", typeof(string)) {AllowDBNull = false }
+                };
+            table.Columns.AddRange(cols);
 
-                SqlParameter parameter;
-                parameter = new SqlParameter("@UserId", SqlDbType.NVarChar, 50);
-                parameter.Value = row[0];
-                command.Parameters.Add(parameter);
-
-                parameter = new SqlParameter("@ProductId", SqlDbType.NVarChar, 50);
-                parameter.Value = row[1];
-                command.Parameters.Add(parameter);
-
-                parameter = new SqlParameter("@Time", SqlDbType.NVarChar, 50);
-                parameter.Value = row[2];
-                command.Parameters.Add(parameter);
-
-                parameter = new SqlParameter("@EventType", SqlDbType.NVarChar, 10);
-                parameter.Value = "Purchase";//MODIFY AFTER ADDING CLICK EVENTS
-                command.Parameters.Add(parameter);
-
-                command.ExecuteNonQuery();
+            //Add each row of data to datatable.
+            List<Object> rows = new List<Object>();
+            foreach (string[] entry in data)
+            {
+                DataRow row = table.NewRow();
+                row["UserId"] = entry[0];
+                row["ProductId"] = entry[1];
+                row["Time"] = entry[2];
+                row["EventType"] = "Purchase";
+                table.Rows.Add(row);
             }
+
+            //Create BulkOperation (Nuget Package), insert new data into [dbo].[UsageData]
+            var bulk = new BulkOperation(connection);
+            bulk.DestinationTableName = "UsageData";
+            bulk.BatchSize = 10000;
+            bulk.RetryCount = 5;
+            bulk.RetryInterval = new TimeSpan(100);
+            bulk.BulkInsert(table);
+
+            Console.WriteLine("Inserted all usage data");
         }
 
         /// <summary>
         /// Manages remove operation.
         /// </summary>
-        public static void RemoveTrainingData()
+        public static void RemoveAllData()
         {
             string RecommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
 
@@ -860,24 +841,16 @@
                 row["RecTwo"] = kvp.Value[1];
                 row["RecThree"] = kvp.Value[2];
                 table.Rows.Add(row);
-                //rows.Add(new Object[] { kvp.Key, kvp.Value[0], kvp.Value[1], kvp.Value[2] });
                 Console.WriteLine("row: " + kvp.Key + ", " + kvp.Value[0] + ", " + kvp.Value[1] + ", " + kvp.Value[2]);
             }
 
-            foreach (Object[] row in rows)
-            {
-                table.Rows.Add(row);
-            }
-
-            //Class to manage SqlBulkCopy operation. Handles transient faults.
-            var bulk = new BulkWriter("dbo.ItemRecommendations", new Dictionary<string, string>
-            {
-                {"ProductId", "ProductId" },
-                {"RecOne", "RecOne" },
-                {"RecTwo", "RecTwo" },
-                {"RecThree", "RecThree" }
-            });
-            bulk.WriteWithRetries(table);
+            //Create BulkOperation (Nuget Package), and merge (upsert) data.
+            var bulk = new BulkOperation(connection);
+            bulk.DestinationTableName = "ItemRecommendations";
+            bulk.BatchSize = 10000;
+            bulk.RetryCount = 5;
+            bulk.RetryInterval = new TimeSpan(100);
+            bulk.BulkMerge(table);
         }
     }
 }
