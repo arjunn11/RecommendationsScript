@@ -22,6 +22,9 @@
         private static string AccountKey = "22fe1376df4444f3b75712ecc208b028"; // <---  Set to your API key here.
         private const string BaseUri = "https://westus.api.cognitive.microsoft.com/recommendations/v4.0";
         private static RecommendationsApiWrapper recommender = null;
+        private static string modelName;
+        private static string modelId = null;
+        private static long buildId = -1;
 
         /// <summary>
         /// Console interface to manage backend processes and data for recommendations.
@@ -38,9 +41,6 @@
 
             //Variables needed for some methods:
             bool quit = false;
-            string modelName;
-            string modelId = null;
-            long buildId = -1;
             recommender = new RecommendationsApiWrapper(AccountKey, BaseUri);
 
             while (true)
@@ -48,17 +48,15 @@
                 int input;
                 Console.WriteLine("Enter 1 to aggregate all raw purchase data into usage table.");
                 Console.WriteLine("Enter 2 to remove all raw/usage data.");
-                Console.WriteLine("Enter 3 to export usage data into usage.csv file.");
-                Console.WriteLine("Enter 4 to export product data into catalog.csv file.");
+                Console.WriteLine("Enter 3 to export product data into catalog.csv file.");
+                Console.WriteLine("Enter 4 to export usage data into usage.csv file.");
                 Console.WriteLine("Enter 5 to create a new model, upload data, and train model (create a recommendations build).");
                 Console.WriteLine("Enter 6 to print all current models.");
                 Console.WriteLine("Enter 7 to delete all current models.");
                 Console.WriteLine("Enter 8 to delete a model by modelid.");
                 Console.WriteLine("Enter 9 to print all builds for a model.");
-                Console.WriteLine("Enter 10 to generate batchInput.json.");
-                Console.WriteLine("Enter 11 to upload batchInput.json file into blob storage.");
-                Console.WriteLine("Enter 12 to run batch recommendations job.");
-                Console.WriteLine("Enter 13 to parse batch output.");
+                Console.WriteLine("Enter 10 to generate & store batch recommendations for all products.");
+                Console.WriteLine("Enter 11 to Get recommendations single request.");
                 Console.WriteLine("Enter 0 to quit");
 
                 while (true)
@@ -87,8 +85,8 @@
                             InsertUsageDataHelper(rowNum);//Aggregates all raw purchase data into usage format.
                             break;
                         case 2: RemoveAllData(); break;
-                        case 3: UsageToCSV(); break;
-                        case 4: CatalogToCSV(); break;
+                        case 3: CatalogToCSV(); break;
+                        case 4: UsageToCSV(); break;
                         case 5:
                             Console.WriteLine("Enter model name:");
                             modelName = Console.ReadLine();
@@ -107,22 +105,30 @@
                             modelId = Console.ReadLine();
                             PrintAllBuilds(modelId);
                             break;
-                        case 10: CreateBatchInputFile(); break;
-                        case 11: UploadInputBlob(); break;
-                        case 12:
-                            /*Console.WriteLine("enter model id");
-                            modelId = Console.ReadLine();
-                            Console.WriteLine("enter build id");
-                            if(!(long.TryParse(Console.ReadLine(), out buildId)))
+                        case 10:
+                            modelId = "bba2de71-b3e5-41ec-8b96-3d875c01e461";
+                            buildId = 1567875;
+                            if (modelId == null)
                             {
-                                Console.WriteLine("Invalid input. Try again.");
-                                break;
-                            }*/
-                            modelId = "7412db41-df78-4801-ba58-aa1c6f93b091";
-                            buildId = 1566426;
-                            GetRecommendationsBatch(recommender, modelId, buildId);
+                                Console.WriteLine("enter model id");
+                                modelId = Console.ReadLine();
+                            }
+                            if(buildId == -1)
+                            {
+                                Console.WriteLine("enter build id");
+                                if (!(long.TryParse(Console.ReadLine(), out buildId)))
+                                {
+                                    Console.WriteLine("Invalid input. Try again.");
+                                    break;
+                                }
+                            }
+                            BatchRecommendationsManager();
                             break;
-                        case 13: ParseBatchOutput(); break;
+                        case 11:
+                            modelId = "bba2de71-b3e5-41ec-8b96-3d875c01e461";
+                            buildId = 1567875;
+                            GetRecommendationsSingleRequest(recommender, modelId, buildId);
+                            break;
                     }
                 }
                 catch (Exception e)
@@ -338,9 +344,9 @@
                 }
 
                 //Aggregate product/catalog data and write to catalog CSV file.
-                var resourcesDir = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Resources");
+                string resourcesDir = @"..\..\Resources";
                 string filePath = Path.Combine(resourcesDir, "catalog.csv");
-                Console.WriteLine("filepath: " + filePath);
+                Console.WriteLine("filePath: " + filePath);
                 using (var file = new StreamWriter(filePath))
                 {
                     foreach (string[] row in catalog)
@@ -392,9 +398,8 @@
                     command.Connection = connection;
                     command.CommandText = "SELECT UserId, ProductId, Time, EventType FROM UsageData; ";
 
-                    var resourcesDir = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Resources");
+                    string resourcesDir = @"..\..\Resources";
                     string filePath = Path.Combine(resourcesDir, "usage.csv");
-
                     using (var file = new StreamWriter(filePath))
                     {
                         using (SqlDataReader reader = command.ExecuteReader())
@@ -512,8 +517,8 @@
             long buildId = -1;
 
             // Import data to the model.            
-            var resourcesDir = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Resources");
             Console.WriteLine("Importing catalog files...");
+            string resourcesDir = "../../Resources";
             foreach (string catalog in Directory.GetFiles(resourcesDir, "catalog.csv"))
             {
                 var catalogFile = new FileInfo(catalog);
@@ -546,7 +551,7 @@
 
             // Monitor the build and wait for completion.
             Console.WriteLine("Monitoring build {0}", buildId);
-            var buildInfo = recommender.WaitForOperationCompletion(operationLocationHeader);
+            var buildInfo = recommender.WaitForOperationCompletion<BuildInfo>(operationLocationHeader);
             Console.WriteLine("Build {0} ended with status {1}.\n", buildId, buildInfo.Status);
 
             if (String.Compare(buildInfo.Status, "Succeeded", StringComparison.OrdinalIgnoreCase) != 0)
@@ -570,20 +575,12 @@
             return buildId;
         }
 
-        /// <summary>
-        /// Creates input file for batch recommendations.
-        /// </summary>
-        public static void CreateBatchInputFile()
+        public static void BatchRecommendationsManager()
         {
-
-            var batchInput = new BatchFile()
-            {
-                requests = new List<ProductList>() { }
-            };
-            //Read each id into batch object.
-            var resourcesDir = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Resources");
+            //Read each product id into a list.
+            List<ProductList> requestIds = new List<ProductList>();
+            string resourcesDir = @"..\..\Resources";
             string filePath = Path.Combine(resourcesDir, "catalog.csv");
-
             using (var reader = new StreamReader(filePath))
             {
                 while (!reader.EndOfStream)
@@ -594,13 +591,47 @@
                     {
                         SeedItems = new List<string>() { values[0] }
                     };
-                    batchInput.requests.Add(list);
+                    requestIds.Add(list);
                 }
             }
+
+            List<ProductList> tempRequestIds = new List<ProductList>();
+            //Get batch recommendations in sets of 10,000 (API limit), then store in SQL.
+            int count = 0;
+            while (count < requestIds.Count)
+            {
+                tempRequestIds.Add(requestIds[count]);
+                count++;
+                if (count % 10000 == 0)
+                {
+                    Console.WriteLine("temp size: " +  tempRequestIds.Count);
+                    //Create input file for batch requests.
+                    CreateBatchInputFile(tempRequestIds);
+                    //Upload to blob storage.
+                    //UploadInputBlob();
+                    //Run batch recommendations job.
+                    GetRecommendationsBatch(recommender, modelId, buildId);
+                    //Parse batch output and store in SQL ([dbo].[ItemRecommendations]).
+                    ParseBatchOutput();
+                    //Empty temp table for next 10,000 products.
+                    tempRequestIds.Clear();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Creates input file for batch recommendations.
+        /// </summary>
+        public static void CreateBatchInputFile(List<ProductList> requests)
+        {
+            //Create BatchFile object and set list of requests (10,000 ids per instance). 
+            var batchInput = new BatchFile();
+            batchInput.requests = requests;
             //Serialize batch object into JSON
             string json = JsonConvert.SerializeObject(batchInput, Formatting.Indented);
             //Write to batchInput.json file.
-            filePath = Path.Combine(resourcesDir, "batchInput.json");
+            string resourcesDir = @"..\..\Resources";
+            string filePath = Path.Combine(resourcesDir, "batchInput.json");
             using (StreamWriter file = File.CreateText(filePath))
             {
                 file.WriteLine(json);
@@ -665,7 +696,7 @@
             // Copy input file from resources directory to blob storage
             var sourceStorageAccount = CloudStorageAccount.Parse(connectionString);
             BlobHelper bh = new BlobHelper(sourceStorageAccount, containerName);
-            var resourcesDir = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Resources");
+            string resourcesDir = @"..\..\Resources";
             bh.PutBlockBlob(containerName, inputFileName, File.ReadAllText(Path.Combine(resourcesDir, inputFileName)));
 
             var inputSas = BlobHelper.GenerateBlobSasToken(connectionString, containerName, inputFileName);
@@ -722,10 +753,8 @@
 
             // Monitor the batch job and wait for completion.
             Console.WriteLine("Monitoring batch job {0}", jobId);
-
-            var batchInfo = recommender.WaitForOperationCompletion(operationLocationHeader);
+            var batchInfo = recommender.WaitForOperationCompletion<BatchJobInfo>(operationLocationHeader);
             Console.WriteLine("Batch {0} ended with status {1}.\n", jobId, batchInfo.Status);
-
 
             if (String.Compare(batchInfo.Status, "Succeeded", StringComparison.OrdinalIgnoreCase) != 0)
             {
@@ -843,7 +872,6 @@
                 row["RecTwo"] = kvp.Value[1];
                 row["RecThree"] = kvp.Value[2];
                 table.Rows.Add(row);
-                Console.WriteLine("row: " + kvp.Key + ", " + kvp.Value[0] + ", " + kvp.Value[1] + ", " + kvp.Value[2]);
             }
 
             //Create BulkOperation (Nuget Package), and merge (upsert) data.
@@ -853,6 +881,49 @@
             bulk.RetryCount = 5;
             bulk.RetryInterval = new TimeSpan(100);
             bulk.BulkMerge(table);
+        }
+
+        public static void GetRecommendationsSingleRequest(RecommendationsApiWrapper recommender, string modelId, long buildId)
+        {
+            // Get item to item recommendations. (I2I)
+            Console.WriteLine();
+            Console.WriteLine("Getting Item to Item 1392146");
+            const string itemIds = "1392146";
+            var itemSets = recommender.GetRecommendations(modelId, buildId, itemIds, 6);
+            if (itemSets.RecommendedItemSetInfo != null)
+            {
+                foreach (RecommendedItemSetInfo recoSet in itemSets.RecommendedItemSetInfo)
+                {
+                    foreach (var item in recoSet.Items)
+                    {
+                        Console.WriteLine("Item id: {0} \n Item name: {1} \t (Rating  {2})", item.Id, item.Name, recoSet.Rating);
+                    }
+                }
+            }
+            else
+            {
+                Console.WriteLine("No recommendations found.");
+            }
+
+            // Now let's get a user recommendation (U2I)
+            Console.WriteLine();
+            Console.WriteLine("Getting User Recommendations for User: 0003BFFDC7118D12");
+            string userId = "0003BFFDC7118D12";
+            itemSets = recommender.GetUserRecommendations(modelId, buildId, userId, 6);
+            if (itemSets.RecommendedItemSetInfo != null)
+            {
+                foreach (RecommendedItemSetInfo recoSet in itemSets.RecommendedItemSetInfo)
+                {
+                    foreach (var item in recoSet.Items)
+                    {
+                        Console.WriteLine("Item id: {0} \n Item name: {1} \t (Rating  {2})", item.Id, item.Name, recoSet.Rating);
+                    }
+                }
+            }
+            else
+            {
+                Console.WriteLine("No recommendations found.");
+            }
         }
     }
 }

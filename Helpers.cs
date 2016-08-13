@@ -685,6 +685,30 @@ namespace Recommendations
         public string MinimalScore { get; set; }
     }
 
+    [DataContract]
+    public class BatchJobInfo
+    {
+        /// <summary>
+        /// Unique batch identifier
+        /// </summary>
+        [DataMember]
+        [JsonProperty("id")]
+        public string Id { get; set; }
+
+        /// <summary>
+        /// Description of the batch request
+        /// </summary>
+        [DataMember]
+        [JsonProperty("requestinfo")]
+        public BatchJobsRequestInfo RequestInfo { get; set; }
+
+        /// <summary>
+        /// Status of the batch job (it is actually the job status: Registered, Ready, InProgress, Canceling, Canceled, Succeeded, Failed)
+        /// </summary>
+        [DataMember]
+        [JsonProperty("status")]
+        public string Status { get; set; }
+    }
 
     [DataContract]
     public class BatchJobsRequestInfo

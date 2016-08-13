@@ -193,6 +193,14 @@
             return buildInfoList;
         }
 
+        public BatchJobsRequestInfo GetAllBatchJobs(string jobId)
+        {
+            string uri = BaseUri + "/batchjobs/" + jobId;
+            var response = _httpClient.GetAsync(uri).Result;
+            var jsonString = response.Content.ReadAsStringAsync().Result;
+            var batchJobsRequestInfo = JsonConvert.DeserializeObject<BatchJobsRequestInfo>(jsonString);
+            return batchJobsRequestInfo;
+        }
         /// <summary>
         /// Trigger a recommendation build for the given model.
         /// Note: unless configured otherwise the u2i (user to item/user based) recommendations are enabled too.
@@ -287,7 +295,7 @@
         /// </summary>
         /// <param name="locationHeader">The operation location header.</param>
         /// <returns>Build status</returns>
-        public OperationInfo<BuildInfo> WaitForOperationCompletion(string locationHeader)
+        /*public OperationInfo<BuildInfo> WaitForOperationCompletion(string locationHeader)
         {
             OperationInfo<BuildInfo> operationInfo;
             while (true)
@@ -309,7 +317,33 @@
                 Thread.Sleep(TimeSpan.FromSeconds(10));
             }
             return operationInfo;
+        }*/
+
+        public OperationInfo<T> WaitForOperationCompletion<T>(string locationHeader)
+        {
+            OperationInfo<T> operationInfo;
+            while (true)
+            {
+                var response = _httpClient.GetAsync(locationHeader).Result;
+                var jsonString = response.Content.ReadAsStringAsync().Result;
+                operationInfo = JsonConvert.DeserializeObject<OperationInfo<T>>(jsonString);
+
+                // BuildStatus{Queued,Building,Cancelling,Cancelled,Succeded,Failed}
+                Console.WriteLine(" Operation status: {1}. \t Will check again in 10 seconds.", operationInfo.PercentComplete, operationInfo.Status);
+
+                if (operationInfo.Status.Equals("Succeeded") ||
+                    operationInfo.Status.Equals("Failed") ||
+                    operationInfo.Status.Equals("Cancelled"))
+                {
+                    break;
+                }
+
+                Thread.Sleep(TimeSpan.FromSeconds(10));
+            }
+            return operationInfo;
         }
+
+
 
 
         /// <summary>
@@ -398,7 +432,6 @@
 
             SetActiveBuild(modelId, info);
         }
-
 
         /// <summary>
         /// Starts a batch job to request recommendations 
