@@ -106,8 +106,8 @@
                             PrintAllBuilds(modelId);
                             break;
                         case 10:
-                            modelId = "bba2de71-b3e5-41ec-8b96-3d875c01e461";
-                            buildId = 1567875;
+                            modelId = "de4dc98d-1400-4d65-ba2d-c6b7c592decc";
+                            buildId = 1568395;
                             if (modelId == null)
                             {
                                 Console.WriteLine("enter model id");
@@ -125,8 +125,8 @@
                             BatchRecommendationsManager();
                             break;
                         case 11:
-                            modelId = "bba2de71-b3e5-41ec-8b96-3d875c01e461";
-                            buildId = 1567875;
+                            modelId = "de4dc98d-1400-4d65-ba2d-c6b7c592decc";
+                            buildId = 1568395;
                             GetRecommendationsSingleRequest(recommender, modelId, buildId);
                             break;
                     }
@@ -575,6 +575,9 @@
             return buildId;
         }
 
+        /// <summary>
+        /// Manages processes to get batch recommendations (calls other methods).
+        /// </summary>
         public static void BatchRecommendationsManager()
         {
             //Read each product id into a list.
@@ -591,10 +594,10 @@
                     {
                         SeedItems = new List<string>() { values[0] }
                     };
-                    requestIds.Add(list);
+                    requestIds.Add(list);          
                 }
             }
-
+            
             List<ProductList> tempRequestIds = new List<ProductList>();
             //Get batch recommendations in sets of 10,000 (API limit), then store in SQL.
             int count = 0;
@@ -604,7 +607,6 @@
                 count++;
                 if (count % 10000 == 0)
                 {
-                    Console.WriteLine("temp size: " +  tempRequestIds.Count);
                     //Create input file for batch requests.
                     CreateBatchInputFile(tempRequestIds);
                     //Upload to blob storage.
@@ -617,6 +619,7 @@
                     tempRequestIds.Clear();
                 }
             }
+            
         }
 
         /// <summary>
@@ -636,6 +639,8 @@
             {
                 file.WriteLine(json);
             }
+
+            Console.WriteLine("Created batch input file.");
         }
 
         /// <summary>
@@ -784,6 +789,8 @@
         /// </summary>
         public static void ParseBatchOutput()
         {
+            Console.WriteLine("Starting parsing of batch output.");
+
             //Data for reading batch output file.
             const string containerName = "batch";
             const string blobName = "batchOutput.json";
@@ -854,14 +861,16 @@
             //Add columns for datatable schema.
             DataColumn[] cols =
             {
-                new DataColumn("UniqueId", typeof(int)) {AutoIncrement = true, AutoIncrementSeed = 1, AutoIncrementStep = 1, AllowDBNull = false},
-                new DataColumn("ProductId", typeof(string)) {AllowDBNull = false },
+                //new DataColumn("UniqueId", typeof(int)) {Unique = true, AutoIncrement = true, AutoIncrementSeed = 1, AutoIncrementStep = 1, AllowDBNull = false},
+                new DataColumn("ProductId", typeof(string)) {Unique = true, AllowDBNull = false },
                 new DataColumn("RecOne", typeof(string)) {AllowDBNull = false },
                 new DataColumn("RecTwo", typeof(string)) {AllowDBNull = false },
                 new DataColumn("RecThree", typeof(string)) {AllowDBNull = false }
             };
             table.Columns.AddRange(cols);
-
+            DataColumn[] primaryKeyColumns = new DataColumn[1];
+            primaryKeyColumns[0] = table.Columns["ProductId"];
+            table.PrimaryKey = primaryKeyColumns;
             List<Object> rows = new List<Object>();
             //Add each row of data to datatable.
             foreach (KeyValuePair<int, List<int>> kvp in recs)
@@ -877,12 +886,17 @@
             //Create BulkOperation (Nuget Package), and merge (upsert) data.
             var bulk = new BulkOperation(connection);
             bulk.DestinationTableName = "ItemRecommendations";
-            bulk.BatchSize = 10000;
             bulk.RetryCount = 5;
             bulk.RetryInterval = new TimeSpan(100);
             bulk.BulkMerge(table);
         }
 
+        /// <summary>
+        /// For testing purposes - to get recommendations for a single ProductId.
+        /// </summary>
+        /// <param name="recommender"></param>
+        /// <param name="modelId"></param>
+        /// <param name="buildId"></param>
         public static void GetRecommendationsSingleRequest(RecommendationsApiWrapper recommender, string modelId, long buildId)
         {
             // Get item to item recommendations. (I2I)
