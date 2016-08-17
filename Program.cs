@@ -47,8 +47,8 @@
             while (true)
             {
                 Console.WriteLine("Enter 1 to quit");
-                //---Prepare/Manage Data---
-                Console.WriteLine("Enter 2 to delete all data in PurchaseDataRaw and UsageData.");
+                //---Prepare/Manage Catalog Data (Products) and Usage Data (Purchases)---
+                Console.WriteLine("Enter 2 to delete all purchase data.");
                 Console.WriteLine("Enter 3 to export product data into catalog.csv file (for training machine learning model).");
                 Console.WriteLine("Enter 4 to export purchase data into usage.csv file (for training machine learning model).");
 
