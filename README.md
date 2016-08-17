@@ -1,10 +1,6 @@
 Flow Diagram
 ---
-![Alt text](Resources/flowcharg.png?raw=true "Project Components")
-
-<p align="center">
-  <img src="/Resources/flowcharg.png?raw=true"/>
-</p>
+![Alt text](/Resources/flowchart.png?raw=true "Project Components")
 
 Event Hubs
 ---
