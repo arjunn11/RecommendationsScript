@@ -609,8 +609,6 @@
                 {
                     //Create input file for batch requests.
                     CreateBatchInputFile(tempRequestIds);
-                    //Upload to blob storage.
-                    //UploadInputBlob();
                     //Run batch recommendations job.
                     GetRecommendationsBatch(recommender, modelId, buildId);
                     //Parse batch output and store in SQL ([dbo].[ItemRecommendations]).
