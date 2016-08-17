@@ -41,23 +41,27 @@
 
             //Variables needed for some methods:
             bool quit = false;
+            int input;
             recommender = new RecommendationsApiWrapper(AccountKey, BaseUri);
 
             while (true)
             {
-                int input;
-                Console.WriteLine("Enter 1 to aggregate all raw purchase data into usage table.");
-                Console.WriteLine("Enter 2 to remove all raw/usage data.");
-                Console.WriteLine("Enter 3 to export product data into catalog.csv file.");
-                Console.WriteLine("Enter 4 to export usage data into usage.csv file.");
+                Console.WriteLine("Enter 1 to quit");
+                //---Prepare/Manage Data---
+                Console.WriteLine("Enter 2 to delete all data in PurchaseDataRaw and UsageData.");
+                Console.WriteLine("Enter 3 to export product data into catalog.csv file (for training machine learning model).");
+                Console.WriteLine("Enter 4 to export purchase data into usage.csv file (for training machine learning model).");
+
+                //---Machine Learning Model Scripts---
                 Console.WriteLine("Enter 5 to create a new model, upload data, and train model (create a recommendations build).");
                 Console.WriteLine("Enter 6 to print all current models.");
                 Console.WriteLine("Enter 7 to delete all current models.");
                 Console.WriteLine("Enter 8 to delete a model by modelid.");
                 Console.WriteLine("Enter 9 to print all builds for a model.");
+
+                //---Get Recommendations from Machine Learning Model---
                 Console.WriteLine("Enter 10 to generate & store batch recommendations for all products.");
                 Console.WriteLine("Enter 11 to Get recommendations single request.");
-                Console.WriteLine("Enter 0 to quit");
 
                 while (true)
                 {
@@ -71,22 +75,10 @@
                 {
                     switch (input)
                     {
-                        case 0: quit = true; break;
-                        case 1:
-                            Console.WriteLine("Enter a row to start aggregating data at:");
-                            int rowNum;
-                            while (true)
-                            {
-                                if (Int32.TryParse(Console.ReadLine(), out rowNum))
-                                    break;
-                                else
-                                    Console.WriteLine("Invalid input. Try again.");
-                            }
-                            InsertUsageDataHelper(rowNum);//Aggregates all raw purchase data into usage format.
-                            break;
+                        case 1: quit = true; break;
                         case 2: RemoveAllData(); break;
                         case 3: CatalogToCSV(); break;
-                        case 4: UsageToCSV(); break;
+                        case 4: InsertUsageDataHelper(); UsageToCSV(); break;
                         case 5:
                             Console.WriteLine("Enter model name:");
                             modelName = Console.ReadLine();
@@ -143,8 +135,7 @@
         /// <summary>
         /// Manages insert operation.
         /// </summary>
-        /// <param name="rowNum"></param>
-        public static void InsertUsageDataHelper(int rowNum)
+        public static void InsertUsageDataHelper()
         {
             string RecommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
 
@@ -155,7 +146,7 @@
 
                 try
                 {
-                    InsertUsageData(connection, rowNum);
+                    InsertUsageData(connection);
                 }
                 catch (Exception ex)
                 {
@@ -167,10 +158,8 @@
         /// <summary>
         /// Selects raw purchase data and inserts each row into [Recommendations.dbo.Usage].
         /// </summary>
-        public static void InsertUsageData(SqlConnection connection, int rowNum)
+        public static void InsertUsageData(SqlConnection connection)
         {
-            //Delete old usage data.
-            DeleteUsageData(connection);
             //Store all new usage data in list.
             List<string[]> data = new List<string[]>();//Compile all new SQL data into data structure.
             //Select new usage data and bulk merge into SQL.
@@ -179,12 +168,7 @@
                 command.Connection = connection;//Set connection used by this instance of SqlCommand
                 command.CommandType = CommandType.Text;//SQL Text Command
                 command.CommandText = @"SELECT UserId, ProductId, Time
-                                        FROM PurchaseDataRaw WHERE UniqueId >= (@StartRow); ";
-                //Set start row:
-                SqlParameter parameter;
-                parameter = new SqlParameter("@StartRow", SqlDbType.Int);
-                parameter.Value = rowNum;
-                command.Parameters.Add(parameter);
+                                        FROM PurchaseDataRaw; ";
 
                 using (SqlDataReader reader = command.ExecuteReader())
                 {
@@ -201,7 +185,10 @@
                 }
             }
 
+            //Delete old raw purchase data
             DeleteRawData(connection);
+           //Delete old usage data.
+            DeleteUsageData(connection);
 
             //Format data into DataTable object for bulk merge (upsert) operation.
             DataTable table = new DataTable("UsageData");
@@ -286,7 +273,7 @@
             using (var command = new SqlCommand())
             {
                 command.Connection = connection;//Set connection used by this instance of SqlCommand
-                command.CommandType = CommandType.Text;//SQL Text Command
+                command.CommandType = CommandType.Text;
                 command.CommandText = @"TRUNCATE TABLE UsageData; ";
                 command.ExecuteNonQuery();
                 Console.WriteLine("Deleted all data in UsageData.");
