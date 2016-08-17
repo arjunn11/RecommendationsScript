@@ -28,7 +28,6 @@
 
         /// <summary>
         /// Console interface to manage backend processes and data for recommendations.
-        /// See print statements below for specific operations.
         /// </summary>
         /// <param name="args"></param>
         public static void Main(string[] args)
@@ -46,6 +45,7 @@
             while (true)
             {
                 Console.WriteLine("Enter 1 to quit");
+
                 //---Prepare/Manage Training Data---
                 Console.WriteLine("Enter 2 to delete all purchase data.");
                 Console.WriteLine("Enter 3 to export product data into catalog.csv file");
@@ -75,9 +75,9 @@
                     switch (input)
                     {
                         case 1: quit = true; break;
-                        case 2: RemoveAllData(); break;
+                        case 2: DeleteRawData(); break;
                         case 3: CatalogToCSV(); break;
-                        case 4: InsertUsageDataHelper(); UsageToCSV(); break;
+                        case 4: UsageToCSVManager(); break;
                         case 5:
                             Console.WriteLine("Enter model name:");
                             modelName = Console.ReadLine();
@@ -104,7 +104,7 @@
                                 Console.WriteLine("enter model id");
                                 modelId = Console.ReadLine();
                             }
-                            if(buildId == -1)
+                            if (buildId == -1)
                             {
                                 Console.WriteLine("enter build id");
                                 if (!(long.TryParse(Console.ReadLine(), out buildId)))
@@ -124,7 +124,7 @@
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("Error: {0}", e.Message);
+                    Console.WriteLine("Error in Main: {0}", e.Message);
                 }
                 Console.WriteLine("Finished operation(s). \n");
                 if (quit) break;
@@ -134,7 +134,7 @@
         /// <summary>
         /// Manages insert operation.
         /// </summary>
-        public static void InsertUsageDataHelper()
+        public static void UsageToCSVManager()
         {
             string RecommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
 
@@ -142,141 +142,124 @@
             {
                 connection.Open();
                 Console.WriteLine("Connection opened.");
-
-                try
-                {
-                    InsertUsageData(connection);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("exception: {0}", ex.ToString());
-                }
+                //Get all new purchase data.
+                List<string[]> PurchaseData = GetPurchaseData(connection);
+                //Delete processed purchase data.
+                DeleteRawData();
+                //Write purchase data to Usage CSV file.
+                UsageToCSV(PurchaseData);
             }
         }
 
         /// <summary>
-        /// Selects raw purchase data and inserts each row into [Recommendations.dbo.Usage].
+        /// Gets raw purchase data and formats it for usage.csv file.
         /// </summary>
-        public static void InsertUsageData(SqlConnection connection)
+        /// <param name="connection"></param>
+        public static List<string[]> GetPurchaseData(SqlConnection connection)
         {
             //Store all new usage data in list.
-            List<string[]> data = new List<string[]>();//Compile all new SQL data into data structure.
-            //Select new usage data and bulk merge into SQL.
-            using (var command = new SqlCommand())
+            List<string[]> PurchaseData = new List<string[]>();
+            try
             {
-                command.Connection = connection;//Set connection used by this instance of SqlCommand
-                command.CommandType = CommandType.Text;//SQL Text Command
-                command.CommandText = @"SELECT UserId, ProductId, Time
+                //Select new usage data and bulk merge into SQL.
+                using (var command = new SqlCommand())
+                {
+                    command.Connection = connection;//Set connection used by this instance of SqlCommand
+                    command.CommandType = CommandType.Text;//SQL Text Command
+                    command.CommandText = @"SELECT UserId, ProductId, Time
                                         FROM PurchaseDataRaw; ";
 
-                using (SqlDataReader reader = command.ExecuteReader())
-                {
-                    while (reader.Read())
+                    using (SqlDataReader reader = command.ExecuteReader())
                     {
-                        DateTime dt = reader.GetDateTime(2);//Format datetime into a string
-                        string dtString = String.Format("{0}/{1}/{2}T{3}:{4}:{5}", dt.Year.ToString("D4"), dt.Month.ToString("D2"),
-                            dt.Day.ToString("D2"), dt.Hour.ToString("D2"), dt.Minute.ToString("D2"), dt.Second.ToString("D2"));
-                        string UserId = reader.GetString(0).Replace('@', '_').Replace('.', '_');
-                        string[] temp = { UserId, reader.GetString(1), dtString };
-                        data.Add(temp);
-                        Console.WriteLine("{0}\t{1}\t{2}", UserId, reader.GetString(1), dtString);
+                        while (reader.Read())
+                        {
+                            DateTime dt = reader.GetDateTime(2);//Format datetime into a string
+                            string UserId = reader.GetString(0).Replace('@', '_').Replace('.', '_');
+                            string ProductId = reader.GetString(1);
+                            string dtString = String.Format("{0}/{1}/{2}T{3}:{4}:{5}", dt.Year.ToString("D4"), dt.Month.ToString("D2"),
+                                dt.Day.ToString("D2"), dt.Hour.ToString("D2"), dt.Minute.ToString("D2"), dt.Second.ToString("D2"));
+                            string[] temp = { UserId, ProductId, dtString, "Purchase" };
+                            PurchaseData.Add(temp);
+                        }
                     }
                 }
             }
-
-            //Delete old raw purchase data
-            DeleteRawData(connection);
-           //Delete old usage data.
-            DeleteUsageData(connection);
-
-            //Format data into DataTable object for bulk merge (upsert) operation.
-            DataTable table = new DataTable("UsageData");
-            DataColumn[] cols =
+            catch (Exception e)
             {
-                    new DataColumn("UniqueId", typeof(int)) {AutoIncrement = true, AutoIncrementSeed = 1, AutoIncrementStep = 1, AllowDBNull = false},
-                    new DataColumn("UserId", typeof(string)) {AllowDBNull = false },
-                    new DataColumn("ProductId", typeof(string)) {AllowDBNull = false },
-                    new DataColumn("Time", typeof(string)) {AllowDBNull = false },
-                    new DataColumn("EventType", typeof(string)) {AllowDBNull = false }
-                };
-            table.Columns.AddRange(cols);
-
-            //Add each row of data to datatable.
-            List<Object> rows = new List<Object>();
-            foreach (string[] entry in data)
-            {
-                DataRow row = table.NewRow();
-                row["UserId"] = entry[0];
-                row["ProductId"] = entry[1];
-                row["Time"] = entry[2];
-                row["EventType"] = "Purchase";
-                table.Rows.Add(row);
+                Console.WriteLine("Error in GetPurchaseData(): {0}", e.Message);
             }
 
-            //Create BulkOperation (Nuget Package), insert new data into [dbo].[UsageData]
-            var bulk = new BulkOperation(connection);
-            bulk.DestinationTableName = "UsageData";
-            bulk.BatchSize = 10000;
-            bulk.RetryCount = 5;
-            bulk.RetryInterval = new TimeSpan(100);
-            bulk.BulkInsert(table);
-
-            Console.WriteLine("Inserted all usage data.");
+            return PurchaseData;
         }
 
         /// <summary>
-        /// Manages remove operation.
+        /// Deletes all purchase data from PurchaseDataRaw table in Recommendations DB.
         /// </summary>
-        public static void RemoveAllData()
+        public static void DeleteRawData()
         {
             string RecommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
 
             using (var connection = new SqlConnection(RecommendationsConnString))
             {
-
                 connection.Open();
                 Console.WriteLine("Connection opened.");
 
                 try
                 {
-                    DeleteRawData(connection);
-                    DeleteUsageData(connection);
+                    using (var command = new SqlCommand())
+                    {
+                        command.Connection = connection;
+                        command.CommandType = CommandType.Text;
+                        command.CommandText = @"TRUNCATE TABLE PurchaseDataRaw; ";
+                        command.ExecuteNonQuery();
+                        Console.WriteLine("Deleted all data in PurchaseDataRaw.");
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("exception: {0}", ex.ToString());
+                    Console.WriteLine("Error in DeleteRawData(): {0}", ex.ToString());
                 }
             }
         }
 
         /// <summary>
-        /// Deletes all raw data from PurchaseDataRaw table in Recommendations DB.
+        /// Export purchase data to CSV file 'usage.csv' for training machine learning model.
         /// </summary>
-        public static void DeleteRawData(SqlConnection connection)
+        /// <param name="PurchaseData"></param>
+        public static void UsageToCSV(List<string[]> PurchaseData)
         {
-            using (var command = new SqlCommand())
+            try
             {
-                command.Connection = connection;
-                command.CommandType = CommandType.Text;
-                command.CommandText = @"TRUNCATE TABLE PurchaseDataRaw; ";
-                command.ExecuteNonQuery();
-                Console.WriteLine("Deleted all data in PurchaseDataRaw.");
-            }
-        }
+                //Read all purchase data into usage.csv file.
+                string resourcesDir = @"..\..\Resources";
+                string filePath = Path.Combine(resourcesDir, "usage.csv");
+                using (var file = new StreamWriter(filePath))
+                {
+                    foreach (string[] purchase in PurchaseData)
+                    {
+                        var tempLine = string.Format("{0},{1},{2},{3}", purchase[0], purchase[1], purchase[2], purchase[3]);
+                        file.WriteLine(tempLine);
+                        file.Flush();
 
-        /// <summary>
-        /// Deletes all training data from UsageData table in Recommendations DB.
-        /// </summary>
-        public static void DeleteUsageData(SqlConnection connection)
-        {
-            using (var command = new SqlCommand())
-            {
-                command.Connection = connection;//Set connection used by this instance of SqlCommand
-                command.CommandType = CommandType.Text;
-                command.CommandText = @"TRUNCATE TABLE UsageData; ";
-                command.ExecuteNonQuery();
-                Console.WriteLine("Deleted all data in UsageData.");
+                    }
+                }
+                //Verify file contents:
+                Console.WriteLine("Printing content:");
+                string line = "";
+                using (var reader = new StreamReader(filePath))
+                {
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        Console.WriteLine(line);
+                    }
+                }
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error in UsageToCSV(): {0}", ex.ToString());
+            }
+
+            Console.WriteLine("CSV generated successfully.");
         }
 
         /// <summary>
@@ -364,57 +347,6 @@
 
                 Console.WriteLine("CSV generated.");
 
-            }
-        }
-
-        /// <summary>
-        /// Export UsageData to CSV file.
-        /// </summary>
-        public static void UsageToCSV()
-        {
-            string RecommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
-
-            using (var connection = new SqlConnection(RecommendationsConnString))
-            {
-                connection.Open();
-                Console.WriteLine("Connection opened.");
-                using (var command = new SqlCommand())
-                {
-                    command.CommandType = CommandType.Text;
-                    command.Connection = connection;
-                    command.CommandText = "SELECT UserId, ProductId, Time, EventType FROM UsageData; ";
-
-                    string resourcesDir = @"..\..\Resources";
-                    string filePath = Path.Combine(resourcesDir, "usage.csv");
-                    using (var file = new StreamWriter(filePath))
-                    {
-                        using (SqlDataReader reader = command.ExecuteReader())
-                        {
-                            while (reader.Read())
-                            {
-                                var UserId = reader.GetString(0);
-                                var ProductId = reader.GetString(1);
-                                var Time = reader.GetString(2);
-                                var EventType = reader.GetString(3);
-                                var tempLine = string.Format("{0},{1},{2},{3}", UserId, ProductId, Time, EventType);
-                                file.WriteLine(tempLine);
-                                file.Flush();
-                            }
-                        }
-                    }
-
-                    Console.WriteLine("Printing content:");
-                    string line = "";
-                    using (var reader = new StreamReader(filePath))
-                    {
-                        while ((line = reader.ReadLine()) != null)
-                        {
-                            Console.WriteLine(line);
-                        }
-                    }
-
-                    Console.WriteLine("CSV generated.");
-                }
             }
         }
 
@@ -580,10 +512,10 @@
                     {
                         SeedItems = new List<string>() { values[0] }
                     };
-                    requestIds.Add(list);          
+                    requestIds.Add(list);
                 }
             }
-            
+
             List<ProductList> tempRequestIds = new List<ProductList>();
             //Get batch recommendations in sets of 10,000 (API limit), then store in SQL.
             int count = 0;
@@ -603,7 +535,7 @@
                     tempRequestIds.Clear();
                 }
             }
-            
+
         }
 
         /// <summary>
@@ -808,13 +740,16 @@
                         Int32.TryParse(recommendation.items[0].itemId.ToString(), out itemId);
                         seedRecs.Add(itemId);
                     }
-                    recs.Add(seedItem, seedRecs);
-                    Console.WriteLine("seed item: " + seedItem + ", seedRecs: " + seedRecs[0] + ", " + seedRecs[1] + ", " + seedRecs[2]);
+                    if (recs.ContainsKey(seedItem))
+                        Console.WriteLine("Error: You have duplicate ProductIds in your catalog. Please fix and create a new ML model.");
+                    else
+                        recs.Add(seedItem, seedRecs);
+                    Console.WriteLine("seedItem: " + seedItem + ", seedRecs: " + seedRecs[0] + ", " + seedRecs[1] + ", " + seedRecs[2]);
                 }
             }
             catch (Exception e)
             {
-                Console.WriteLine("Error: " + e);
+                Console.WriteLine("Error in ParseBatchOutput(): " + e);
             }
 
             string RecommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
@@ -830,7 +765,7 @@
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("exception: {0}", ex.ToString());
+                    Console.WriteLine("Exception in StoreBatchRecommendations(): {0}", ex.ToString());
                 }
             }
         }
@@ -848,9 +783,9 @@
             {
                 //new DataColumn("UniqueId", typeof(int)) {Unique = true, AutoIncrement = true, AutoIncrementSeed = 1, AutoIncrementStep = 1, AllowDBNull = false},
                 new DataColumn("ProductId", typeof(string)) {Unique = true, AllowDBNull = false },
-                new DataColumn("RecOne", typeof(string)) {AllowDBNull = false },
-                new DataColumn("RecTwo", typeof(string)) {AllowDBNull = false },
-                new DataColumn("RecThree", typeof(string)) {AllowDBNull = false }
+                new DataColumn("RecOne", typeof(string)) {AllowDBNull = true },
+                new DataColumn("RecTwo", typeof(string)) {AllowDBNull = true },
+                new DataColumn("RecThree", typeof(string)) {AllowDBNull = true }
             };
             table.Columns.AddRange(cols);
             DataColumn[] primaryKeyColumns = new DataColumn[1];
