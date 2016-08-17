@@ -106,8 +106,8 @@
                             PrintAllBuilds(modelId);
                             break;
                         case 10:
-                            modelId = "de4dc98d-1400-4d65-ba2d-c6b7c592decc";
-                            buildId = 1568395;
+                            modelId = "898ef0c9-1338-46a5-8b73-51db22ee78f2";
+                            buildId = 1568560;
                             if (modelId == null)
                             {
                                 Console.WriteLine("enter model id");
@@ -125,8 +125,8 @@
                             BatchRecommendationsManager();
                             break;
                         case 11:
-                            modelId = "de4dc98d-1400-4d65-ba2d-c6b7c592decc";
-                            buildId = 1568395;
+                            modelId = "2b7fcca3-59a7-4d8e-8562-da30ec74cb73";
+                            buildId = 1568428;
                             GetRecommendationsSingleRequest(recommender, modelId, buildId);
                             break;
                     }
@@ -825,6 +825,7 @@
                         seedRecs.Add(itemId);
                     }
                     recs.Add(seedItem, seedRecs);
+                    Console.WriteLine("seed item: " + seedItem + ", seedRecs: " + seedRecs[0] + ", " + seedRecs[1] + ", " + seedRecs[2]);
                 }
             }
             catch (Exception e)
