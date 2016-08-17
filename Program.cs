@@ -39,7 +39,6 @@
                 AccountKey = Console.ReadLine();
             }
 
-            //Variables needed for some methods:
             bool quit = false;
             int input;
             recommender = new RecommendationsApiWrapper(AccountKey, BaseUri);
@@ -47,13 +46,13 @@
             while (true)
             {
                 Console.WriteLine("Enter 1 to quit");
-                //---Prepare/Manage Catalog Data (Products) and Usage Data (Purchases)---
+                //---Prepare/Manage Training Data---
                 Console.WriteLine("Enter 2 to delete all purchase data.");
-                Console.WriteLine("Enter 3 to export product data into catalog.csv file (for training machine learning model).");
-                Console.WriteLine("Enter 4 to export purchase data into usage.csv file (for training machine learning model).");
+                Console.WriteLine("Enter 3 to export product data into catalog.csv file");
+                Console.WriteLine("Enter 4 to export purchase data into usage.csv file");
 
                 //---Machine Learning Model Scripts---
-                Console.WriteLine("Enter 5 to create a new model, upload data, and train model (create a recommendations build).");
+                Console.WriteLine("Enter 5 to create a new model, upload data, and train model (recommendations build).");
                 Console.WriteLine("Enter 6 to print all current models.");
                 Console.WriteLine("Enter 7 to delete all current models.");
                 Console.WriteLine("Enter 8 to delete a model by modelid.");
@@ -61,7 +60,7 @@
 
                 //---Get Recommendations from Machine Learning Model---
                 Console.WriteLine("Enter 10 to generate & store batch recommendations for all products.");
-                Console.WriteLine("Enter 11 to Get recommendations single request.");
+                Console.WriteLine("Enter 11 to Get recommendations for a single product.");
 
                 while (true)
                 {
@@ -117,9 +116,9 @@
                             BatchRecommendationsManager();
                             break;
                         case 11:
-                            modelId = "2b7fcca3-59a7-4d8e-8562-da30ec74cb73";
-                            buildId = 1568428;
-                            GetRecommendationsSingleRequest(recommender, modelId, buildId);
+                            Console.WriteLine("Enter a productid:");
+                            string productId = Console.ReadLine();
+                            GetRecommendationsSingleRequest(recommender, modelId, buildId, productId);
                             break;
                     }
                 }
@@ -883,12 +882,13 @@
         /// <param name="recommender"></param>
         /// <param name="modelId"></param>
         /// <param name="buildId"></param>
-        public static void GetRecommendationsSingleRequest(RecommendationsApiWrapper recommender, string modelId, long buildId)
+        /// <param name="productId"></param>
+        public static void GetRecommendationsSingleRequest(RecommendationsApiWrapper recommender, string modelId, long buildId, string productId)
         {
             // Get item to item recommendations. (I2I)
             Console.WriteLine();
-            Console.WriteLine("Getting Item to Item 1392146");
-            const string itemIds = "1392146";
+            Console.WriteLine("Getting Item to Item for {0}", productId);
+            string itemIds = productId;
             var itemSets = recommender.GetRecommendations(modelId, buildId, itemIds, 6);
             if (itemSets.RecommendedItemSetInfo != null)
             {
