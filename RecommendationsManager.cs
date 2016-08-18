@@ -1,4 +1,6 @@
-﻿namespace Recommendations
+﻿using Quartz.Util;
+
+namespace Recommendations
 {
     using AzureMLRecoSampleApp;
     using System;
@@ -35,24 +37,24 @@
 
         public static void Main(string[] args)
         {
-            if (String.IsNullOrEmpty(AccountKey))
+            if (string.IsNullOrEmpty(AccountKey))
             {
                 Console.WriteLine("Please enter your Recommendations API Account key:");
                 AccountKey = Console.ReadLine();
             }
 
             bool quit = false;
-            int input;
             recommender = new RecommendationsApiWrapper(AccountKey, BaseUri);
 
             while (true)
             {
+                #region
                 Console.WriteLine("Enter 1 to quit");
 
                 //---Prepare/Manage Training Data---
                 Console.WriteLine("Enter 2 to delete all purchase data.");
                 Console.WriteLine("Enter 3 to export product data into catalog.csv file");
-                Console.WriteLine("Enter 4 to export purchase data into usage.csv file");
+                Console.WriteLine("Enter 4 to export new purchase data into usage.csv file");
 
                 //---Machine Learning Model Scripts---
                 Console.WriteLine("Enter 5 to create a new model, upload data, and train model.");
@@ -68,7 +70,9 @@
                 //---Retrain Machine Learning Model with New Data---
                 Console.WriteLine("Enter 12 to upload a new usage file and retrain ML model.");
                 Console.WriteLine("Enter 13 to add new items to catalog and publish to ML model.");
+                #endregion
 
+                int input;
                 while (true)
                 {
                     if (Int32.TryParse(Console.ReadLine(), out input))
@@ -79,6 +83,27 @@
 
                 try
                 {
+                    //---REMOVE AND INTEGRATE INTO GUI---
+                    modelId = "898ef0c9-1338-46a5-8b73-51db22ee78f2";
+                    buildId = 1568560;
+                    //---REMOVE AND INTEGRATE INTO GUI---
+
+                    if (modelId == null)
+                    {
+                        Console.WriteLine("enter model id");
+                        modelId = Console.ReadLine();
+                    }
+                    if (buildId == -1)
+                    {
+                        Console.WriteLine("enter build id");
+                        if (!(long.TryParse(Console.ReadLine(), out buildId)))
+                        {
+                            Console.WriteLine("Invalid input. Try again.");
+                            break;
+                        }
+                    }
+
+                    #region
                     switch (input)
                     {
                         case 1: quit = true; break;
@@ -103,42 +128,16 @@
                             modelId = Console.ReadLine();
                             PrintAllBuilds(modelId);
                             break;
-                        case 10:
-                            modelId = "898ef0c9-1338-46a5-8b73-51db22ee78f2";
-                            buildId = 1568560;
-                            if (modelId == null)
-                            {
-                                Console.WriteLine("enter model id");
-                                modelId = Console.ReadLine();
-                            }
-                            if (buildId == -1)
-                            {
-                                Console.WriteLine("enter build id");
-                                if (!(long.TryParse(Console.ReadLine(), out buildId)))
-                                {
-                                    Console.WriteLine("Invalid input. Try again.");
-                                    break;
-                                }
-                            }
-                            BatchRecommendationsManager();
-                            break;
+                        case 10: BatchRecommendationsManager(); break;
                         case 11:
-                            modelId = "898ef0c9-1338-46a5-8b73-51db22ee78f2";
-                            buildId = 1568560;
                             Console.WriteLine("Enter a productid:");
                             string productId = Console.ReadLine();
-                            GetRecommendationsSingleRequest(recommender, modelId, buildId, productId);
+                            GetRecommendationsSingleRequest(recommender, buildId, productId);
                             break;
-                        case 12:
-                            modelId = "898ef0c9-1338-46a5-8b73-51db22ee78f2";
-                            UploadNewUsage(modelId);
-                            break;
-                        case 13:
-                            Console.WriteLine("Specify filepath for catalog file with new products");
-                            string filepath = Console.ReadLine();
-                            UploadNewCatalog(filepath);
-                            break;
+                        case 12: UploadNewUsage(); RetrainModel(BuildType.Recommendation);break;
+                        case 13: UploadNewCatalog(); RetrainModel(BuildType.Recommendation); break;
                     }
+                    #endregion
                 }
                 catch (Exception e)
                 {
@@ -154,18 +153,18 @@
         /// </summary>
         public static void UsageToCSVManager()
         {
-            string RecommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
+            string recommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
 
-            using (var connection = new SqlConnection(RecommendationsConnString))
+            using (var connection = new SqlConnection(recommendationsConnString))
             {
                 connection.Open();
                 Console.WriteLine("Connection opened.");
                 //Get all new purchase data.
-                List<string[]> PurchaseData = GetPurchaseData(connection);
+                List<string[]> purchaseData = GetPurchaseData(connection);
                 //Delete processed purchase data.
                 DeleteRawData();
                 //Write purchase data to Usage CSV file.
-                UsageToCSV(PurchaseData);
+                UsageToCSV(purchaseData);
             }
         }
 
@@ -176,7 +175,7 @@
         public static List<string[]> GetPurchaseData(SqlConnection connection)
         {
             //Store all new usage data in list.
-            List<string[]> PurchaseData = new List<string[]>();
+            List<string[]> purchaseData = new List<string[]>();
             try
             {
                 //Select new usage data and bulk merge into SQL.
@@ -194,10 +193,10 @@
                             DateTime dt = reader.GetDateTime(2);//Format datetime into a string
                             string UserId = reader.GetString(0).Replace('@', '_').Replace('.', '_');
                             string ProductId = reader.GetString(1);
-                            string dtString = String.Format("{0}/{1}/{2}T{3}:{4}:{5}", dt.Year.ToString("D4"), dt.Month.ToString("D2"),
+                            string dtString = string.Format("{0}/{1}/{2}T{3}:{4}:{5}", dt.Year.ToString("D4"), dt.Month.ToString("D2"),
                                 dt.Day.ToString("D2"), dt.Hour.ToString("D2"), dt.Minute.ToString("D2"), dt.Second.ToString("D2"));
                             string[] temp = { UserId, ProductId, dtString, "Purchase" };
-                            PurchaseData.Add(temp);
+                            purchaseData.Add(temp);
                         }
                     }
                 }
@@ -207,7 +206,7 @@
                 Console.WriteLine("Error in GetPurchaseData(): {0}", e.Message);
             }
 
-            return PurchaseData;
+            return purchaseData;
         }
 
         /// <summary>
@@ -215,16 +214,16 @@
         /// </summary>
         public static void DeleteRawData()
         {
-            string RecommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
+            string recommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
 
-            using (var connection = new SqlConnection(RecommendationsConnString))
+            using (SqlConnection connection = new SqlConnection(recommendationsConnString))
             {
                 connection.Open();
                 Console.WriteLine("Connection opened.");
 
                 try
                 {
-                    using (var command = new SqlCommand())
+                    using (SqlCommand command = new SqlCommand())
                     {
                         command.Connection = connection;
                         command.CommandType = CommandType.Text;
@@ -243,17 +242,17 @@
         /// <summary>
         /// Export purchase data to CSV file 'usage.csv' for training machine learning model.
         /// </summary>
-        /// <param name="PurchaseData"></param>
-        public static void UsageToCSV(List<string[]> PurchaseData)
+        /// <param name="purchaseData"></param>
+        public static void UsageToCSV(List<string[]> purchaseData)
         {
             try
             {
                 //Read all purchase data into usage.csv file.
                 string resourcesDir = @"..\..\Resources";
                 string filePath = Path.Combine(resourcesDir, "usage.csv");
-                using (var file = new StreamWriter(filePath))
+                using (StreamWriter file = new StreamWriter(filePath))
                 {
-                    foreach (string[] purchase in PurchaseData)
+                    foreach (string[] purchase in purchaseData)
                     {
                         var tempLine = string.Format("{0},{1},{2},{3}", purchase[0], purchase[1], purchase[2], purchase[3]);
                         file.WriteLine(tempLine);
@@ -263,9 +262,9 @@
                 }
                 //Verify file contents:
                 Console.WriteLine("Printing content:");
-                string line = "";
-                using (var reader = new StreamReader(filePath))
+                using (StreamReader reader = new StreamReader(filePath))
                 {
+                    string line = "";
                     while ((line = reader.ReadLine()) != null)
                     {
                         Console.WriteLine(line);
@@ -287,26 +286,26 @@
         {
             string con = ConfigurationManager.ConnectionStrings["CatalogCS"].ConnectionString;
 
-            using (var connection = new SqlConnection(con))
+            using (SqlConnection connection = new SqlConnection(con))
             {
                 connection.Open();
                 //Store catalog data in-memory.
                 List<string[]> catalog = new List<string[]>();
                 //Select product data.
-                using (var command = new SqlCommand())
+                using (SqlCommand command = new SqlCommand())
                 {
                     command.CommandType = CommandType.Text;
                     command.Connection = connection;
                     command.CommandText = "SELECT ProductId, ProductName, Description, CategoryId FROM Products;";
 
-                    using (var reader = command.ExecuteReader())
+                    using (SqlDataReader reader = command.ExecuteReader())
                     {
                         while (reader.Read())
                         {
-                            var ProductId = reader.GetInt32(0).ToString();
-                            var ProductName = reader.GetString(1);
-                            var Description = reader.GetString(2);
-                            var CategoryId = reader.GetInt32(3).ToString();
+                            string ProductId = reader.GetInt32(0).ToString();
+                            string ProductName = reader.GetString(1);
+                            string Description = reader.GetString(2);
+                            string CategoryId = reader.GetInt32(3).ToString();
                             string[] temp = { ProductId, ProductName, CategoryId, Description };
                             catalog.Add(temp);
                         }
@@ -315,13 +314,13 @@
 
                 //Select category data.
                 Dictionary<int, string> categories = new Dictionary<int, string>();
-                using (var command = new SqlCommand())
+                using (SqlCommand command = new SqlCommand())
                 {
                     command.CommandType = CommandType.Text;
                     command.Connection = connection;
                     command.CommandText = "SELECT CategoryID, CategoryName FROM Categories; ";
 
-                    using (var reader = command.ExecuteReader())
+                    using (SqlDataReader reader = command.ExecuteReader())
                     {
                         while (reader.Read())
                         {
@@ -334,14 +333,14 @@
                 string resourcesDir = @"..\..\Resources";
                 string filePath = Path.Combine(resourcesDir, "catalog.csv");
                 Console.WriteLine("filePath: " + filePath);
-                using (var file = new StreamWriter(filePath))
+                using (StreamWriter file = new StreamWriter(filePath))
                 {
                     foreach (string[] row in catalog)
                     {
                         try
                         {
                             categories.TryGetValue(Convert.ToInt32(row[2]), out row[2]);
-                            var tempLine = string.Format("{0},{1},{2},{3}", row[0], row[1], row[2], row[3]);
+                            string tempLine = string.Format("{0},{1},{2},{3}", row[0], row[1], row[2], row[3]);
                             file.WriteLine(tempLine);
                             file.Flush();
                         }
@@ -355,7 +354,7 @@
 
                 Console.WriteLine("Printing content:");
                 string line = "";
-                using (var reader = new StreamReader(filePath))
+                using (StreamReader reader = new StreamReader(filePath))
                 {
                     while ((line = reader.ReadLine()) != null)
                     {
@@ -452,24 +451,12 @@
         {
             long buildId = -1;
 
-            // Import data to the model.            
-            Console.WriteLine("Importing catalog files...");
-            string resourcesDir = "../../Resources";
-            foreach (string catalog in Directory.GetFiles(resourcesDir, "catalog.csv"))
-            {
-                var catalogFile = new FileInfo(catalog);
-                recommender.UploadCatalog(modelId, catalogFile.FullName, catalogFile.Name);
-            }
-
-            Console.WriteLine("Importing usage data...");
-            foreach (string usage in Directory.GetFiles(resourcesDir, "usage.csv"))
-            {
-                var usageFile = new FileInfo(usage);
-                recommender.UploadUsage(modelId, usageFile.FullName, usageFile.Name);
-            }
+            // Import data to the model.
+            UploadNewCatalog();
+            UploadNewUsage();
 
             //Trigger a build.
-            buildId = TriggerBuild(modelId, buildType);
+            buildId = TriggerBuild(buildType);
 
             return buildId;
         }
@@ -477,14 +464,13 @@
         /// <summary>
         /// Triggers a new build for given machine learning model.
         /// </summary>
-        /// <param name="modelId"></param>
         /// <param name="buildType"></param>
         /// <returns></returns>
-        public static long TriggerBuild(string modelId, BuildType buildType)
+        public static long TriggerBuild(BuildType buildType)
         {
             // Trigger a recommendation build.
             string operationLocationHeader;
-            Console.WriteLine("Triggering build for model '{0}'. \nThis will take a few minutes...", modelId);
+            Console.WriteLine("Triggering build for model '{0}'. \nThis will take a few minutes...");
             if (buildType == BuildType.Recommendation)
             {
                 buildId = recommender.CreateRecommendationsBuild(modelId, "Recommendation Build " + DateTime.UtcNow.ToString("yyyyMMddHHmmss"),
@@ -532,17 +518,20 @@
             List<ProductList> requestIds = new List<ProductList>();
             string resourcesDir = @"..\..\Resources";
             string filePath = Path.Combine(resourcesDir, "catalog.csv");
-            using (var reader = new StreamReader(filePath))
+            using (StreamReader reader = new StreamReader(filePath))
             {
                 while (!reader.EndOfStream)
                 {
-                    var line = reader.ReadLine();
-                    var values = line.Split(',');
-                    var list = new ProductList()
+                    string line = reader.ReadLine();
+                    if (!line.IsNullOrWhiteSpace())
                     {
-                        SeedItems = new List<string>() { values[0] }
-                    };
-                    requestIds.Add(list);
+                        string[] values = line.Split(',');
+                        var list = new ProductList()
+                        {
+                            SeedItems = new List<string>() { values[0] }
+                        };
+                        requestIds.Add(list);
+                    }
                 }
             }
 
@@ -645,7 +634,7 @@
             string connectionString = ConfigurationManager.AppSettings["BlobConnectionString"];
 
             // Copy input file from resources directory to blob storage
-            var sourceStorageAccount = CloudStorageAccount.Parse(connectionString);
+            CloudStorageAccount sourceStorageAccount = CloudStorageAccount.Parse(connectionString);
             BlobHelper bh = new BlobHelper(sourceStorageAccount, containerName);
             string resourcesDir = @"..\..\Resources";
             bh.PutBlockBlob(containerName, inputFileName, File.ReadAllText(Path.Combine(resourcesDir, inputFileName)));
@@ -782,9 +771,9 @@
                 Console.WriteLine("Error in ParseBatchOutput(): " + e);
             }
 
-            string RecommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
+            string recommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
 
-            using (var connection = new SqlConnection(RecommendationsConnString))
+            using (var connection = new SqlConnection(recommendationsConnString))
             {
                 connection.Open();
                 Console.WriteLine("Connection opened.");
@@ -845,10 +834,9 @@
         /// For testing purposes - to get recommendations for a single ProductId.
         /// </summary>
         /// <param name="recommender"></param>
-        /// <param name="modelId"></param>
         /// <param name="buildId"></param>
         /// <param name="productId"></param>
-        public static void GetRecommendationsSingleRequest(RecommendationsApiWrapper recommender, string modelId, long buildId, string productId)
+        public static void GetRecommendationsSingleRequest(RecommendationsApiWrapper recommender, long buildId, string productId)
         {
             // Get item to item recommendations. (I2I)
             Console.WriteLine();
@@ -894,11 +882,11 @@
         /// <summary>
         /// Uploads new usage data to machine learning model for retraining purposes.
         /// </summary>
-        /// <param name="modelId"></param>
-        public static void UploadNewUsage(string modelId)
+        public static void UploadNewUsage()
         {
-            //Generate new Usage CSV file.
-            UsageToCSVManager();
+            Console.WriteLine("Make sure you have uploaded all new purchase data to Resources/usage.csv");
+            Console.WriteLine("Press any key to continue.");
+            Console.ReadKey(true);
             //Upload CSV file to model.
             try
             {
@@ -906,7 +894,7 @@
                 string resourcesDir = "../../Resources";
                 foreach (string usage in Directory.GetFiles(resourcesDir, "usage.csv"))
                 {
-                    var usageFile = new FileInfo(usage);
+                    FileInfo usageFile = new FileInfo(usage);
                     recommender.UploadUsage(modelId, usageFile.FullName, usageFile.Name);
                 }
             }
@@ -916,20 +904,23 @@
             }
         }
 
-
         /// <summary>
         /// Adds products in catalog file (filepath) to the machine learning model.
         /// </summary>
-        /// <param name="filepath"></param>
-        public static void UploadNewCatalog(string filepath)
+        public static void UploadNewCatalog()
         {
+            // Check that catalog CSV contains correct content.
+            Console.WriteLine("Make sure /Resources/catalog.csv contains ONLY new products (not already in ML model).");
+            Console.WriteLine("Follow CSV schema specified here: https://westus.dev.cognitive.microsoft.com/docs/services/Recommendations.V4.0/operations/56f316efeda5650db055a3e1 ");
+            Console.WriteLine("Press any key to continue.");
+            Console.ReadKey(true);
 
             // Import data to the model.            
             Console.WriteLine("Importing catalog files...");
             string resourcesDir = "../../Resources";
             foreach (string catalog in Directory.GetFiles(resourcesDir, "catalog.csv"))
             {
-                var catalogFile = new FileInfo(catalog);
+                FileInfo catalogFile = new FileInfo(catalog);
                 recommender.UploadCatalog(modelId, catalogFile.FullName, catalogFile.Name);
             }
         }
@@ -937,9 +928,8 @@
         /// <summary>
         /// Retrains model by generating a new build if new catalog or usage data has been uploaded.
         /// </summary>
-        /// <param name="modelId"></param>
         /// <param name="buildType"></param>
-        public static void RetrainModel(string modelId, BuildType buildType)
+        public static void RetrainModel(BuildType buildType)
         {
             //Delete old build(s).
             var buildInfoList = recommender.GetAllBuilds(modelId);
@@ -949,7 +939,7 @@
             }
 
             //Gemerate mew build.
-            TriggerBuild(modelId, buildType);
+            TriggerBuild(buildType);
         }
     }
 }
