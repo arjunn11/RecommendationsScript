@@ -65,9 +65,9 @@
                 Console.WriteLine("Enter 10 to generate & store batch recommendations for all products.");
                 Console.WriteLine("Enter 11 to get recommendations for a single product.");
 
-                //---Add new data, Retrain Machine Learning Model---
-                Console.WriteLine("Enter 12 to upload a new usage file to existing ML model.");
-                Console.WriteLine("Enter 13 to retrain the machine learning model.");
+                //---Retrain Machine Learning Model with New Data---
+                Console.WriteLine("Enter 12 to upload a new usage file and retrain ML model.");
+                Console.WriteLine("Enter 13 to add new items to catalog and publish to ML model.");
 
                 while (true)
                 {
@@ -134,8 +134,9 @@
                             UploadNewUsage(modelId);
                             break;
                         case 13:
-                            modelId = "898ef0c9-1338-46a5-8b73-51db22ee78f2";
-                            RetrainModel(modelId, BuildType.Recommendation);
+                            Console.WriteLine("Specify filepath for catalog file with new products");
+                            string filepath = Console.ReadLine();
+                            UploadNewCatalog(filepath);
                             break;
                     }
                 }
@@ -915,6 +916,24 @@
             }
         }
 
+
+        /// <summary>
+        /// Adds products in catalog file (filepath) to the machine learning model.
+        /// </summary>
+        /// <param name="filepath"></param>
+        public static void UploadNewCatalog(string filepath)
+        {
+
+            // Import data to the model.            
+            Console.WriteLine("Importing catalog files...");
+            string resourcesDir = "../../Resources";
+            foreach (string catalog in Directory.GetFiles(resourcesDir, "catalog.csv"))
+            {
+                var catalogFile = new FileInfo(catalog);
+                recommender.UploadCatalog(modelId, catalogFile.FullName, catalogFile.Name);
+            }
+        }
+
         /// <summary>
         /// Retrains model by generating a new build if new catalog or usage data has been uploaded.
         /// </summary>
@@ -931,20 +950,6 @@
 
             //Gemerate mew build.
             TriggerBuild(modelId, buildType);
-        }
-
-        //FINISH THIS METHOD
-        public static void UploadNewCatalog(string filepath)
-        {
-
-            // Import data to the model.            
-            Console.WriteLine("Importing catalog files...");
-            string resourcesDir = "../../Resources";
-            foreach (string catalog in Directory.GetFiles(resourcesDir, "catalog.csv"))
-            {
-                var catalogFile = new FileInfo(catalog);
-                recommender.UploadCatalog(modelId, catalogFile.FullName, catalogFile.Name);
-            }
         }
     }
 }
