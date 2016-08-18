@@ -1,30 +1,25 @@
-﻿using Quartz.Util;
+﻿using System;
+using System.Collections.Generic;
+using System.Configuration;
+using System.Data;
+using System.Data.SqlClient;
+using System.IO;
+using System.Reflection;
+using System.Threading;
+using Microsoft.WindowsAzure.Storage;
+using Microsoft.WindowsAzure.Storage.Blob;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Quartz.Util;
+using Z.BulkOperations;
 
-namespace Recommendations
+namespace RecommendationsManager
 {
-    using AzureMLRecoSampleApp;
-    using System;
-    using System.IO;
-    using System.Reflection;
-    using System.Threading;
-    using Microsoft.WindowsAzure.Storage;
-    using Microsoft.WindowsAzure.Storage.Blob;
-    using System.Configuration;
-    using Newtonsoft.Json.Linq;
-    using System.Collections.Generic;
-    using System.Text;
-    using System.Data;
-    using System.Data.SqlClient;
-    using Newtonsoft.Json;
-    using SQLTestScript;
-    using Z.BulkOperations;
-
     public class RecommendationsManager
     {
-        private static string AccountKey = "22fe1376df4444f3b75712ecc208b028";
+        private static string accountKey = "22fe1376df4444f3b75712ecc208b028";
         private const string BaseUri = "https://westus.api.cognitive.microsoft.com/recommendations/v4.0";
         private static RecommendationsApiWrapper recommender = null;
-        private static string modelName;
         private static string modelId = null;
         private static long buildId = -1;
 
@@ -37,14 +32,14 @@ namespace Recommendations
 
         public static void Main(string[] args)
         {
-            if (string.IsNullOrEmpty(AccountKey))
+            if (string.IsNullOrEmpty(accountKey))
             {
                 Console.WriteLine("Please enter your Recommendations API Account key:");
-                AccountKey = Console.ReadLine();
+                accountKey = Console.ReadLine();
             }
 
             bool quit = false;
-            recommender = new RecommendationsApiWrapper(AccountKey, BaseUri);
+            recommender = new RecommendationsApiWrapper(asccountKey, BaseUri);
 
             while (true)
             {
@@ -85,7 +80,7 @@ namespace Recommendations
                 {
                     //---REMOVE AND INTEGRATE INTO GUI---
                     modelId = "898ef0c9-1338-46a5-8b73-51db22ee78f2";
-                    buildId = 1568560;
+                    buildId = 1568858;
                     //---REMOVE AND INTEGRATE INTO GUI---
 
                     if (modelId == null)
@@ -112,7 +107,7 @@ namespace Recommendations
                         case 4: UsageToCSVManager(); break;
                         case 5:
                             Console.WriteLine("Enter model name:");
-                            modelName = Console.ReadLine();
+                            string modelName = Console.ReadLine();
                             modelId = CreateModel(modelName);
                             buildId = UploadDataAndTrainModel(modelId, BuildType.Recommendation);
                             break;
@@ -134,7 +129,7 @@ namespace Recommendations
                             string productId = Console.ReadLine();
                             GetRecommendationsSingleRequest(recommender, buildId, productId);
                             break;
-                        case 12: UploadNewUsage(); RetrainModel(BuildType.Recommendation);break;
+                        case 12: UploadNewUsage(); RetrainModel(BuildType.Recommendation); break;
                         case 13: UploadNewCatalog(); RetrainModel(BuildType.Recommendation); break;
                     }
                     #endregion
@@ -470,19 +465,17 @@ namespace Recommendations
         {
             // Trigger a recommendation build.
             string operationLocationHeader;
-            Console.WriteLine("Triggering build for model '{0}'. \nThis will take a few minutes...");
+            Console.WriteLine("Triggering build for model '{0}'. \nThis will take a few minutes...", modelId);
             if (buildType == BuildType.Recommendation)
-            {
-                buildId = recommender.CreateRecommendationsBuild(modelId, "Recommendation Build " + DateTime.UtcNow.ToString("yyyyMMddHHmmss"),
-                                                                     enableModelInsights: false,
-                                                                     operationLocationHeader: out operationLocationHeader);
-            }
+                buildId = recommender.CreateRecommendationsBuild(modelId,
+                    "Recommendation Build " + DateTime.UtcNow.ToString("yyyyMMddHHmmss"),
+                    enableModelInsights: false,
+                    operationLocationHeader: out operationLocationHeader);
             else
-            {
-                buildId = recommender.CreateFbtBuild(modelId, "Frequenty-Bought-Together Build " + DateTime.UtcNow.ToString("yyyyMMddHHmmss"),
-                                                     enableModelInsights: false,
-                                                     operationLocationHeader: out operationLocationHeader);
-            }
+                buildId = recommender.CreateFbtBuild(modelId,
+                    "Frequenty-Bought-Together Build " + DateTime.UtcNow.ToString("yyyyMMddHHmmss"),
+                    enableModelInsights: false,
+                    operationLocationHeader: out operationLocationHeader);
 
             // Monitor the build and wait for completion.
             Console.WriteLine("Monitoring build {0}", buildId);
@@ -507,6 +500,56 @@ namespace Recommendations
             recommender.SetActiveBuild(modelId, buildId);
 
             return buildId;
+        }
+
+        /// <summary>
+        /// Uploads new usage data to machine learning model for retraining purposes.
+        /// </summary>
+        public static void UploadNewUsage()
+        {
+            Console.WriteLine("Make sure you have uploaded all new purchase data to Resources/usage.csv");
+            Console.WriteLine("Press any key to continue.");
+            Console.ReadKey(true);
+            //Upload CSV file to model.
+            try
+            {
+                Console.WriteLine("Importing usage data...");
+                string resourcesDir = "../../Resources";
+                foreach (string usage in Directory.GetFiles(resourcesDir, "usage.csv"))
+                {
+                    FileInfo usageFile = new FileInfo(usage);
+                    recommender.UploadUsage(modelId, usageFile.FullName, usageFile.Name);
+                }
+                //Clear all file contents.
+                File.WriteAllText(Path.Combine(resourcesDir, "usage.csv"), string.Empty);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Error in UploadNewUsage(): " + e);
+            }
+        }
+
+        /// <summary>
+        /// Adds products in catalog file (filepath) to the machine learning model.
+        /// </summary>
+        public static void UploadNewCatalog()
+        {
+            // Check that catalog CSV contains correct content.
+            Console.WriteLine("Make sure /Resources/catalog.csv contains ONLY new products (not already in ML model).");
+            Console.WriteLine("Follow CSV schema specified here: https://westus.dev.cognitive.microsoft.com/docs/services/Recommendations.V4.0/operations/56f316efeda5650db055a3e1 ");
+            Console.WriteLine("Press any key to continue.");
+            Console.ReadKey(true);
+
+            // Import data to the model.            
+            Console.WriteLine("Importing catalog files...");
+            string resourcesDir = "../../Resources";
+            foreach (string catalog in Directory.GetFiles(resourcesDir, "catalog.csv"))
+            {
+                FileInfo catalogFile = new FileInfo(catalog);
+                recommender.UploadCatalog(modelId, catalogFile.FullName, catalogFile.Name);
+            }
+            //Clear all file contents.
+            File.WriteAllText(Path.Combine(resourcesDir, "catalog.csv"), string.Empty);
         }
 
         /// <summary>
@@ -880,66 +923,24 @@ namespace Recommendations
         }
 
         /// <summary>
-        /// Uploads new usage data to machine learning model for retraining purposes.
-        /// </summary>
-        public static void UploadNewUsage()
-        {
-            Console.WriteLine("Make sure you have uploaded all new purchase data to Resources/usage.csv");
-            Console.WriteLine("Press any key to continue.");
-            Console.ReadKey(true);
-            //Upload CSV file to model.
-            try
-            {
-                Console.WriteLine("Importing usage data...");
-                string resourcesDir = "../../Resources";
-                foreach (string usage in Directory.GetFiles(resourcesDir, "usage.csv"))
-                {
-                    FileInfo usageFile = new FileInfo(usage);
-                    recommender.UploadUsage(modelId, usageFile.FullName, usageFile.Name);
-                }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Error in UploadNewUsage(): " + e);
-            }
-        }
-
-        /// <summary>
-        /// Adds products in catalog file (filepath) to the machine learning model.
-        /// </summary>
-        public static void UploadNewCatalog()
-        {
-            // Check that catalog CSV contains correct content.
-            Console.WriteLine("Make sure /Resources/catalog.csv contains ONLY new products (not already in ML model).");
-            Console.WriteLine("Follow CSV schema specified here: https://westus.dev.cognitive.microsoft.com/docs/services/Recommendations.V4.0/operations/56f316efeda5650db055a3e1 ");
-            Console.WriteLine("Press any key to continue.");
-            Console.ReadKey(true);
-
-            // Import data to the model.            
-            Console.WriteLine("Importing catalog files...");
-            string resourcesDir = "../../Resources";
-            foreach (string catalog in Directory.GetFiles(resourcesDir, "catalog.csv"))
-            {
-                FileInfo catalogFile = new FileInfo(catalog);
-                recommender.UploadCatalog(modelId, catalogFile.FullName, catalogFile.Name);
-            }
-        }
-
-        /// <summary>
         /// Retrains model by generating a new build if new catalog or usage data has been uploaded.
         /// </summary>
         /// <param name="buildType"></param>
         public static void RetrainModel(BuildType buildType)
         {
+            //Gemerate new build.
+            buildId = TriggerBuild(buildType);
+
+            //Set new build as active build for ML model.
+            recommender.SetActiveBuild(modelId, buildId);
+
             //Delete old build(s).
-            var buildInfoList = recommender.GetAllBuilds(modelId);
+            BuildInfoList buildInfoList = recommender.GetAllBuilds(modelId);
             foreach (var build in buildInfoList.Builds)
             {
-                recommender.DeleteBuild(modelId, build.Id);
+                if (build.Id != buildId)
+                    recommender.DeleteBuild(modelId, build.Id);
             }
-
-            //Gemerate mew build.
-            TriggerBuild(buildType);
         }
     }
 }

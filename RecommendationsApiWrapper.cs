@@ -1,14 +1,13 @@
-﻿namespace Recommendations
-{
-    using System;
-    using System.IO;
-    using System.Net.Http;
-    using Newtonsoft.Json;
-    using System.Net.Http.Formatting;
-    using System.Linq;
-    using System.Threading;
-    
+﻿using System;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Formatting;
+using System.Threading;
+using Newtonsoft.Json;
 
+namespace RecommendationsManager
+{
     /// <summary>
     /// A wrapper class to invoke Recommendations REST APIs
     /// </summary>
@@ -321,23 +320,6 @@
         }
 
         /// <summary>
-        /// Set an active build for the model.
-        /// </summary>
-        /// <param name="modelId">Unique idenfier of the model</param>
-        /// <param name="updateActiveBuildInfo"></param>
-        public void SetActiveBuild(string modelId, UpdateActiveBuildInfo updateActiveBuildInfo)
-        {
-            string uri = BaseUri + "/models/" + modelId;
-            var content = new ObjectContent<UpdateActiveBuildInfo>(updateActiveBuildInfo, new JsonMediaTypeFormatter());
-            var request = new HttpRequestMessage(new HttpMethod("PATCH"), uri) { Content = content };
-            var response = _httpClient.SendAsync(request).Result;
-            if (!response.IsSuccessStatusCode)
-            {
-                throw new Exception("Error HTTP Status Code");
-            }
-        }
-
-        /// <summary>
         /// Get Item to Item (I2I) Recommendations or Frequently-Bought-Together (FBT) recommendations
         /// </summary>
         /// <param name="modelId">The model identifier.</param>
@@ -405,6 +387,23 @@
             };
 
             SetActiveBuild(modelId, info);
+        }
+
+        /// <summary>
+        /// Set an active build for the model.
+        /// </summary>
+        /// <param name="modelId">Unique idenfier of the model</param>
+        /// <param name="updateActiveBuildInfo"></param>
+        public void SetActiveBuild(string modelId, UpdateActiveBuildInfo updateActiveBuildInfo)
+        {
+            string uri = BaseUri + "/models/" + modelId;
+            var content = new ObjectContent<UpdateActiveBuildInfo>(updateActiveBuildInfo, new JsonMediaTypeFormatter());
+            var request = new HttpRequestMessage(new HttpMethod("PATCH"), uri) { Content = content };
+            var response = _httpClient.SendAsync(request).Result;
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new Exception("Error HTTP Status Code");
+            }
         }
 
         /// <summary>

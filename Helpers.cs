@@ -4,15 +4,15 @@
  * of the requests/responses to the RESTful API.
  * 
  ***************************************************************************************/
-namespace Recommendations
+
+using System.Collections.Generic;
+using System.Runtime.Serialization;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+
+namespace RecommendationsManager
 {
-    using System.Runtime.Serialization;
-    using Newtonsoft.Json;
-    using System.Collections.Generic;
-    using Newtonsoft.Json.Converters;
-    using Microsoft.WindowsAzure.Storage.Blob;
-    using System;
-    using Microsoft.WindowsAzure.Storage;
+
     #region response classes
     public enum OperationType
     {
