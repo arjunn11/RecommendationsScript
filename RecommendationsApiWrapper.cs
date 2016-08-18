@@ -293,32 +293,9 @@
         /// <summary>
         /// Monitor build operation status and wait for completion.
         /// </summary>
-        /// <param name="locationHeader">The operation location header.</param>
-        /// <returns>Build status</returns>
-        /*public OperationInfo<BuildInfo> WaitForOperationCompletion(string locationHeader)
-        {
-            OperationInfo<BuildInfo> operationInfo;
-            while (true)
-            {
-                var response = _httpClient.GetAsync(locationHeader).Result;
-                var jsonString = response.Content.ReadAsStringAsync().Result;
-                operationInfo = JsonConvert.DeserializeObject<OperationInfo<BuildInfo>>(jsonString);
-
-                // BuildStatus{Queued,Building,Cancelling,Cancelled,Succeded,Failed}
-                Console.WriteLine(" Operation status: {1}. \t Will check again in 10 seconds.", operationInfo.PercentComplete, operationInfo.Status);
-
-                if (operationInfo.Status.Equals("Succeeded") ||
-                    operationInfo.Status.Equals("Failed") ||
-                    operationInfo.Status.Equals("Cancelled"))
-                {
-                    break;
-                }
-
-                Thread.Sleep(TimeSpan.FromSeconds(10));
-            }
-            return operationInfo;
-        }*/
-
+        /// <typeparam name="T"></typeparam>
+        /// <param name="locationHeader"></param>
+        /// <returns></returns>
         public OperationInfo<T> WaitForOperationCompletion<T>(string locationHeader)
         {
             OperationInfo<T> operationInfo;
@@ -342,9 +319,6 @@
             }
             return operationInfo;
         }
-
-
-
 
         /// <summary>
         /// Set an active build for the model.

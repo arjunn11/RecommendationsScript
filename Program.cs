@@ -52,7 +52,7 @@
                 Console.WriteLine("Enter 4 to export purchase data into usage.csv file");
 
                 //---Machine Learning Model Scripts---
-                Console.WriteLine("Enter 5 to create a new model, upload data, and train model (recommendations build).");
+                Console.WriteLine("Enter 5 to create a new model, upload data, and train model.");
                 Console.WriteLine("Enter 6 to print all current models.");
                 Console.WriteLine("Enter 7 to delete all current models.");
                 Console.WriteLine("Enter 8 to delete a model by modelid.");
@@ -60,7 +60,11 @@
 
                 //---Get Recommendations from Machine Learning Model---
                 Console.WriteLine("Enter 10 to generate & store batch recommendations for all products.");
-                Console.WriteLine("Enter 11 to Get recommendations for a single product.");
+                Console.WriteLine("Enter 11 to get recommendations for a single product.");
+
+                //---Add new data, Retrain Machine Learning Model---
+                Console.WriteLine("Enter 12 to upload a new usage file to existing ML model.");
+                Console.WriteLine("Enter 13 to retrain the machine learning model.");
 
                 while (true)
                 {
@@ -116,9 +120,19 @@
                             BatchRecommendationsManager();
                             break;
                         case 11:
+                            modelId = "898ef0c9-1338-46a5-8b73-51db22ee78f2";
+                            buildId = 1568560;
                             Console.WriteLine("Enter a productid:");
                             string productId = Console.ReadLine();
                             GetRecommendationsSingleRequest(recommender, modelId, buildId, productId);
+                            break;
+                        case 12:
+                            modelId = "898ef0c9-1338-46a5-8b73-51db22ee78f2";
+                            UploadNewUsage(modelId);
+                            break;
+                        case 13:
+                            modelId = "898ef0c9-1338-46a5-8b73-51db22ee78f2";
+                            RetrainModel(modelId, BuildType.Recommendation);
                             break;
                     }
                 }
@@ -425,7 +439,7 @@
         }
 
         /// <summary>
-        /// Upload catalog and usage files and trigger a build.
+        /// Upload catalog and usage files and trigger a new build.
         /// </summary>
         /// <param name="modelId"></param>
         /// <param name="buildType"></param>
@@ -450,7 +464,20 @@
                 recommender.UploadUsage(modelId, usageFile.FullName, usageFile.Name);
             }
 
-            #region training
+            //Trigger a build.
+            buildId = TriggerBuild(modelId, buildType);
+
+            return buildId;
+        }
+
+        /// <summary>
+        /// Triggers a new build for given machine learning model.
+        /// </summary>
+        /// <param name="modelId"></param>
+        /// <param name="buildType"></param>
+        /// <returns></returns>
+        public static long TriggerBuild(string modelId, BuildType buildType)
+        {
             // Trigger a recommendation build.
             string operationLocationHeader;
             Console.WriteLine("Triggering build for model '{0}'. \nThis will take a few minutes...", modelId);
@@ -488,7 +515,6 @@
             // Currently this app has a single build which is already active.
             Console.WriteLine("Setting build {0} as active build.", buildId);
             recommender.SetActiveBuild(modelId, buildId);
-            #endregion
 
             return buildId;
         }
@@ -858,6 +884,63 @@
             else
             {
                 Console.WriteLine("No recommendations found.");
+            }
+        }
+
+        /// <summary>
+        /// Uploads new usage data to machine learning model for retraining purposes.
+        /// </summary>
+        /// <param name="modelId"></param>
+        public static void UploadNewUsage(string modelId)
+        {
+            //Generate new Usage CSV file.
+            UsageToCSVManager();
+            //Upload CSV file to model.
+            try
+            {
+                Console.WriteLine("Importing usage data...");
+                string resourcesDir = "../../Resources";
+                foreach (string usage in Directory.GetFiles(resourcesDir, "usage.csv"))
+                {
+                    var usageFile = new FileInfo(usage);
+                    recommender.UploadUsage(modelId, usageFile.FullName, usageFile.Name);
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Error in UploadNewUsage(): " + e);
+            }
+        }
+
+        /// <summary>
+        /// Retrains model by generating a new build if new catalog or usage data has been uploaded.
+        /// </summary>
+        /// <param name="modelId"></param>
+        /// <param name="buildType"></param>
+        public static void RetrainModel(string modelId, BuildType buildType)
+        {
+            //Delete old build(s).
+            var buildInfoList = recommender.GetAllBuilds(modelId);
+            foreach (var build in buildInfoList.Builds)
+            {
+                recommender.DeleteBuild(modelId, build.Id);
+            }
+
+            //Gemerate mew build.
+            TriggerBuild(modelId, buildType);
+        }
+
+        //FINISH THIS METHOD
+        public static void UploadNewCatalog(string filepath)
+        {
+
+            // Import data to the model.            
+            Console.WriteLine("Importing catalog files...");
+            string resourcesDir = "../../Resources";
+            foreach (string catalog in Directory.GetFiles(resourcesDir, "catalog.csv"))
+            {
+                var catalogFile = new FileInfo(catalog);
+                recommender.UploadCatalog(modelId, catalogFile.FullName, catalogFile.Name);
             }
         }
     }
