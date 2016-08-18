@@ -289,7 +289,6 @@ namespace AzureMLRecoSampleApp
             return sasBlobToken;
         }
 
-
         /// <summary>
         /// Get Blob data connection timeout
         /// </summary>

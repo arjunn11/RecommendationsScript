@@ -599,9 +599,6 @@ namespace Recommendations
         }
         #endregion
 
-
-
-
     }
 
     [DataContract]
