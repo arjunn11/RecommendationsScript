@@ -17,136 +17,29 @@ namespace RecommendationsManager
 {
     public class RecommendationsManager
     {
-        private static string accountKey = "22fe1376df4444f3b75712ecc208b028";
+        private string accountKey = "22fe1376df4444f3b75712ecc208b028";
         private const string BaseUri = "https://westus.api.cognitive.microsoft.com/recommendations/v4.0";
-        private static RecommendationsApiWrapper recommender = null;
-        private static string modelId = null;
-        private static long buildId = -1;
+        private RecommendationsApiWrapper recommender = null;
+        private string modelId = null;
+        private long buildId = -1;
 
         /// <summary>
         /// Class to manage backend processes and data for recommendations on e-commerce site.
         /// </summary>
         /// <param name="args"></param>
-
-        //public RecommendationsManager() { }
-
-        public static void Main(string[] args)
+        public RecommendationsManager(string _accountKey, ref RecommendationsApiWrapper _recommender,
+            ref string _modelId, ref long _buildId)
         {
-            if (string.IsNullOrEmpty(accountKey))
-            {
-                Console.WriteLine("Please enter your Recommendations API Account key:");
-                accountKey = Console.ReadLine();
-            }
-
-            bool quit = false;
-            recommender = new RecommendationsApiWrapper(accountKey, BaseUri);
-
-            while (true)
-            {
-                #region
-                Console.WriteLine("Enter 1 to quit");
-
-                //---Prepare/Manage Training Data---
-                Console.WriteLine("Enter 2 to delete all purchase data.");
-                Console.WriteLine("Enter 3 to export product data into catalog.csv file");
-                Console.WriteLine("Enter 4 to export new purchase data into usage.csv file");
-
-                //---Machine Learning Model Scripts---
-                Console.WriteLine("Enter 5 to create a new model, upload data, and train model.");
-                Console.WriteLine("Enter 6 to print all current models.");
-                Console.WriteLine("Enter 7 to delete all current models.");
-                Console.WriteLine("Enter 8 to delete a model by modelid.");
-                Console.WriteLine("Enter 9 to print all builds for a model.");
-
-                //---Get Recommendations from Machine Learning Model---
-                Console.WriteLine("Enter 10 to generate & store batch recommendations for all products.");
-                Console.WriteLine("Enter 11 to get recommendations for a single product.");
-
-                //---Retrain Machine Learning Model with New Data---
-                Console.WriteLine("Enter 12 to upload a new usage file and retrain ML model.");
-                Console.WriteLine("Enter 13 to add new items to catalog and publish to ML model.");
-                #endregion
-
-                int input;
-                while (true)
-                {
-                    if (Int32.TryParse(Console.ReadLine(), out input))
-                        break;
-                    else
-                        Console.WriteLine("Invalid input. Try again.");
-                }
-
-                try
-                {
-                    //---REMOVE AND INTEGRATE INTO GUI---
-                    modelId = "898ef0c9-1338-46a5-8b73-51db22ee78f2";
-                    buildId = 1568858;
-                    //---REMOVE AND INTEGRATE INTO GUI---
-
-                    if (modelId == null)
-                    {
-                        Console.WriteLine("enter model id");
-                        modelId = Console.ReadLine();
-                    }
-                    if (buildId == -1)
-                    {
-                        Console.WriteLine("enter build id");
-                        if (!(long.TryParse(Console.ReadLine(), out buildId)))
-                        {
-                            Console.WriteLine("Invalid input. Try again.");
-                            break;
-                        }
-                    }
-
-                    #region
-                    switch (input)
-                    {
-                        case 1: quit = true; break;
-                        case 2: DeleteRawData(); break;
-                        case 3: CatalogToCSV(); break;
-                        case 4: UsageToCSVManager(); break;
-                        case 5:
-                            Console.WriteLine("Enter model name:");
-                            string modelName = Console.ReadLine();
-                            modelId = CreateModel(modelName);
-                            buildId = UploadDataAndTrainModel(modelId, BuildType.Recommendation);
-                            break;
-                        case 6: PrintAllModels(); break;
-                        case 7: DeleteAllModels(); break;
-                        case 8:
-                            Console.WriteLine("Enter a model id:");
-                            modelId = Console.ReadLine();
-                            recommender.DeleteModel(modelId);
-                            break;
-                        case 9:
-                            Console.WriteLine("Enter a model id:");
-                            modelId = Console.ReadLine();
-                            PrintAllBuilds(modelId);
-                            break;
-                        case 10: BatchRecommendationsManager(); break;
-                        case 11:
-                            Console.WriteLine("Enter a productid:");
-                            string productId = Console.ReadLine();
-                            GetRecommendationsSingleRequest(recommender, buildId, productId);
-                            break;
-                        case 12: UploadNewUsage(); RetrainModel(BuildType.Recommendation); break;
-                        case 13: UploadNewCatalog(); RetrainModel(BuildType.Recommendation); break;
-                    }
-                    #endregion
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Error in Main: {0}", e.Message);
-                }
-                Console.WriteLine("Finished operation(s). \n");
-                if (quit) break;
-            }
+            accountKey = _accountKey;
+            recommender = _recommender;
+            modelId = _modelId;
+            buildId = _buildId;
         }
 
         /// <summary>
         /// Manages insert operation.
         /// </summary>
-        public static void UsageToCSVManager()
+        public void UsageToCSVManager()
         {
             string recommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
 
@@ -167,7 +60,7 @@ namespace RecommendationsManager
         /// Gets raw purchase data and formats it for usage.csv file.
         /// </summary>
         /// <param name="connection"></param>
-        public static List<string[]> GetPurchaseData(SqlConnection connection)
+        public List<string[]> GetPurchaseData(SqlConnection connection)
         {
             //Store all new usage data in list.
             List<string[]> purchaseData = new List<string[]>();
@@ -207,7 +100,7 @@ namespace RecommendationsManager
         /// <summary>
         /// Deletes all purchase data from PurchaseDataRaw table in Recommendations DB.
         /// </summary>
-        public static void DeleteRawData()
+        public void DeleteRawData()
         {
             string recommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
 
@@ -238,7 +131,7 @@ namespace RecommendationsManager
         /// Export purchase data to CSV file 'usage.csv' for training machine learning model.
         /// </summary>
         /// <param name="purchaseData"></param>
-        public static void UsageToCSV(List<string[]> purchaseData)
+        public void UsageToCSV(List<string[]> purchaseData)
         {
             try
             {
@@ -277,7 +170,7 @@ namespace RecommendationsManager
         /// <summary>
         /// Export catalog information to CSV file.
         /// </summary>
-        public static void CatalogToCSV()
+        public void CatalogToCSV()
         {
             string con = ConfigurationManager.ConnectionStrings["CatalogCS"].ConnectionString;
 
@@ -365,7 +258,7 @@ namespace RecommendationsManager
         /// <summary>
         /// Deletes all models associated with specified Cognitive Services account.
         /// </summary>
-        public static void DeleteAllModels()
+        public void DeleteAllModels()
         {
             var modelInfoList = recommender.GetAllModels();
             try
@@ -385,7 +278,7 @@ namespace RecommendationsManager
         /// <summary>
         /// Prints all models in Cognitive Services account.
         /// </summary>
-        public static void PrintAllModels()
+        public void PrintAllModels()
         {
             try
             {
@@ -405,14 +298,14 @@ namespace RecommendationsManager
         /// Print all builds for a given model.
         /// </summary>
         /// <param name="modelId"></param>
-        public static void PrintAllBuilds(string modelId)
+        public void PrintAllBuilds(string modelId)
         {
             try
             {
                 var buildInfoList = recommender.GetAllBuilds(modelId);
                 foreach (var build in buildInfoList.Builds)
                 {
-                    Console.WriteLine("Name: {0}, Id: {1}", build.Id);
+                    Console.WriteLine("Id: {0}", build.Id);
                 }
             }
             catch (Exception e)
@@ -426,7 +319,7 @@ namespace RecommendationsManager
         /// </summary>
         /// <param name="modelName"></param>
         /// <returns></returns>
-        public static string CreateModel(string modelName)
+        public string CreateModel(string modelName)
         {
             string modelId;
             Console.WriteLine("Creating a new model {0}...", modelName);
@@ -442,7 +335,7 @@ namespace RecommendationsManager
         /// <param name="modelId"></param>
         /// <param name="buildType"></param>
         /// <returns></returns>
-        public static long UploadDataAndTrainModel(string modelId, BuildType buildType)
+        public long UploadDataAndTrainModel(string modelId, BuildType buildType)
         {
             long buildId = -1;
 
@@ -461,7 +354,7 @@ namespace RecommendationsManager
         /// </summary>
         /// <param name="buildType"></param>
         /// <returns></returns>
-        public static long TriggerBuild(BuildType buildType)
+        public long TriggerBuild(BuildType buildType)
         {
             // Trigger a recommendation build.
             string operationLocationHeader;
@@ -505,7 +398,7 @@ namespace RecommendationsManager
         /// <summary>
         /// Uploads new usage data to machine learning model for retraining purposes.
         /// </summary>
-        public static void UploadNewUsage()
+        public void UploadNewUsage()
         {
             Console.WriteLine("Make sure you have uploaded all new purchase data to Resources/usage.csv");
             Console.WriteLine("Press any key to continue.");
@@ -532,7 +425,7 @@ namespace RecommendationsManager
         /// <summary>
         /// Adds products in catalog file (filepath) to the machine learning model.
         /// </summary>
-        public static void UploadNewCatalog()
+        public void UploadNewCatalog()
         {
             // Check that catalog CSV contains correct content.
             Console.WriteLine("Make sure /Resources/catalog.csv contains ONLY new products (not already in ML model).");
@@ -555,12 +448,14 @@ namespace RecommendationsManager
         /// <summary>
         /// Manages processes to get batch recommendations (calls other methods).
         /// </summary>
-        public static void BatchRecommendationsManager()
+        public void BatchRecommendationsManager()
         {
+            //Read all products into catalog.csv.
+            CatalogToCSV();
             //Read each product id into a list.
             List<ProductList> requestIds = new List<ProductList>();
             string resourcesDir = @"..\..\Resources";
-            string filePath = Path.Combine(resourcesDir, "catalog.csv");
+            string filePath = Path.Combine(resourcesDir, "z.csv");
             using (StreamReader reader = new StreamReader(filePath))
             {
                 while (!reader.EndOfStream)
@@ -603,7 +498,7 @@ namespace RecommendationsManager
         /// <summary>
         /// Creates input file for batch recommendations.
         /// </summary>
-        public static void CreateBatchInputFile(List<ProductList> requests)
+        public void CreateBatchInputFile(List<ProductList> requests)
         {
             //Create BatchFile object and set list of requests (10,000 ids per instance). 
             var batchInput = new BatchFile();
@@ -624,7 +519,7 @@ namespace RecommendationsManager
         /// <summary>
         /// Uploads batch input file into blob.
         /// </summary>
-        public static void UploadInputBlob()
+        public void UploadInputBlob()
         {
             string connectionString = ConfigurationManager.AppSettings["BlobConnectionString"];
             try
@@ -661,7 +556,7 @@ namespace RecommendationsManager
         /// <param name="recommender">Wrapper that maintains API key</param>
         /// <param name="modelId">Model ID</param>
         /// <param name="buildId">Build ID</param>
-        public static void GetRecommendationsBatch(RecommendationsApiWrapper recommender, string modelId, long buildId)
+        public void GetRecommendationsBatch(RecommendationsApiWrapper recommender, string modelId, long buildId)
         {
             #region  setup
             // Set storage credentials and copy input file that defines items we want to get recommendations to the Blob Container.
@@ -765,7 +660,7 @@ namespace RecommendationsManager
         /// <summary>
         /// Parse output JSON, extract recommendations (ProductIds), batch upload to SQL table.
         /// </summary>
-        public static void ParseBatchOutput()
+        public void ParseBatchOutput()
         {
             Console.WriteLine("Starting parsing of batch output.");
 
@@ -837,7 +732,7 @@ namespace RecommendationsManager
         /// </summary>
         /// <param name="recs"></param>
         /// <param name="connection"></param>
-        public static void StoreBatchRecommendations(Dictionary<int, List<int>> recs, SqlConnection connection)
+        public void StoreBatchRecommendations(Dictionary<int, List<int>> recs, SqlConnection connection)
         {
             DataTable table = new DataTable("ItemRecommendations");
             //Add columns for datatable schema.
@@ -879,7 +774,7 @@ namespace RecommendationsManager
         /// <param name="recommender"></param>
         /// <param name="buildId"></param>
         /// <param name="productId"></param>
-        public static void GetRecommendationsSingleRequest(RecommendationsApiWrapper recommender, long buildId, string productId)
+        public void GetRecommendationsSingleRequest(RecommendationsApiWrapper recommender, long buildId, string productId)
         {
             // Get item to item recommendations. (I2I)
             Console.WriteLine();
@@ -926,10 +821,11 @@ namespace RecommendationsManager
         /// Retrains model by generating a new build if new catalog or usage data has been uploaded.
         /// </summary>
         /// <param name="buildType"></param>
-        public static void RetrainModel(BuildType buildType)
+        public void RetrainModel(BuildType buildType)
         {
             //Gemerate new build.
             buildId = TriggerBuild(buildType);
+            Console.WriteLine("{0} is your new active build.", buildId);
 
             //Set new build as active build for ML model.
             recommender.SetActiveBuild(modelId, buildId);
