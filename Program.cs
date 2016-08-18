@@ -19,7 +19,7 @@
 
     public class RecommendationsSampleApp
     {
-        private static string AccountKey = "22fe1376df4444f3b75712ecc208b028"; // <---  Set to your API key here.
+        private static string AccountKey = "22fe1376df4444f3b75712ecc208b028";
         private const string BaseUri = "https://westus.api.cognitive.microsoft.com/recommendations/v4.0";
         private static RecommendationsApiWrapper recommender = null;
         private static string modelName;
