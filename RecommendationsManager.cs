@@ -39,7 +39,7 @@ namespace RecommendationsManager
             }
 
             bool quit = false;
-            recommender = new RecommendationsApiWrapper(asccountKey, BaseUri);
+            recommender = new RecommendationsApiWrapper(accountKey, BaseUri);
 
             while (true)
             {
