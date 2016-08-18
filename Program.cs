@@ -27,7 +27,7 @@
         private static long buildId = -1;
 
         /// <summary>
-        /// Console interface to manage backend processes and data for recommendations.
+        /// Class to manage backend processes and data for recommendations on e-commerce site.
         /// </summary>
         /// <param name="args"></param>
         public static void Main(string[] args)
