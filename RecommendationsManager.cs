@@ -465,7 +465,7 @@ namespace RecommendationsManager
             //Read each product id into a list.
             List<ProductList> requestIds = new List<ProductList>();
             string resourcesDir = @"..\..\Resources";
-            string filePath = Path.Combine(resourcesDir, "z.csv");
+            string filePath = Path.Combine(resourcesDir, "catalog.csv");
             using (StreamReader reader = new StreamReader(filePath))
             {
                 while (!reader.EndOfStream)

@@ -17,11 +17,11 @@ namespace RecommendationsManager
 
         public static void Main(string[] args)
         {
-            //---REMOVE AND INTEGRATE INTO GUI---
+            //---REMOVE FOR PRODUCTION CODE---
             modelId = "898ef0c9-1338-46a5-8b73-51db22ee78f2";
             buildId = 1568858;
             accountKey = "22fe1376df4444f3b75712ecc208b028";
-            //---REMOVE AND INTEGRATE INTO GUI---
+            //---REMOVE FOR PRODUCTION CODE---
 
             if (string.IsNullOrEmpty(accountKey))
             {
@@ -69,7 +69,7 @@ namespace RecommendationsManager
 
                 //---Retrain Machine Learning Model with New Data---
                 Console.WriteLine("Enter 12 to upload a new usage file and retrain ML model.");
-                Console.WriteLine("Enter 13 to add new items to catalog and publish to ML model.");
+                Console.WriteLine("Enter 13 to add new products to catalog and publish to ML model.");
                 #endregion
 
                 int input;
