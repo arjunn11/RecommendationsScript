@@ -28,6 +28,19 @@ namespace RecommendationsManager
                 Console.WriteLine("Please enter your Recommendations API Account key:");
                 accountKey = Console.ReadLine();
             }
+            if (string.IsNullOrEmpty(modelId))
+            {
+                Console.WriteLine("enter model id");
+                modelId = Console.ReadLine();
+            }
+            if (buildId == -1)
+            {
+                Console.WriteLine("enter build id");
+                if (!(long.TryParse(Console.ReadLine(), out buildId)))
+                {
+                    Console.WriteLine("Invalid input. Try again.");
+                }
+            }
 
             bool quit = false;
             recommender = new RecommendationsApiWrapper(accountKey, BaseUri);
@@ -67,24 +80,8 @@ namespace RecommendationsManager
                     else
                         Console.WriteLine("Invalid input. Try again.");
                 }
-
                 try
                 {
-                    if (modelId == null)
-                    {
-                        Console.WriteLine("enter model id");
-                        modelId = Console.ReadLine();
-                    }
-                    if (buildId == -1)
-                    {
-                        Console.WriteLine("enter build id");
-                        if (!(long.TryParse(Console.ReadLine(), out buildId)))
-                        {
-                            Console.WriteLine("Invalid input. Try again.");
-                            break;
-                        }
-                    }
-
                     #region
                     switch (input)
                     {
