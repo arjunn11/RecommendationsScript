@@ -27,13 +27,23 @@ namespace RecommendationsManager
         /// Class to manage backend processes and data for recommendations on e-commerce site.
         /// </summary>
         /// <param name="args"></param>
-        public RecommendationsManager(string _accountKey, ref RecommendationsApiWrapper _recommender,
-            ref string _modelId, ref long _buildId)
+        public RecommendationsManager(string _accountKey, RecommendationsApiWrapper _recommender, string _modelId, 
+            long _buildId)
         {
             accountKey = _accountKey;
             recommender = _recommender;
             modelId = _modelId;
             buildId = _buildId;
+        }
+
+        public void SetBuildId(long _buildId)
+        {
+            buildId = _buildId;
+        }
+
+        public void SetModelId(string _modelId)
+        {
+            modelId = _modelId;
         }
 
         /// <summary>
@@ -821,7 +831,7 @@ namespace RecommendationsManager
         /// Retrains model by generating a new build if new catalog or usage data has been uploaded.
         /// </summary>
         /// <param name="buildType"></param>
-        public void RetrainModel(BuildType buildType)
+        public long RetrainModel(BuildType buildType)
         {
             //Gemerate new build.
             buildId = TriggerBuild(buildType);
@@ -837,6 +847,8 @@ namespace RecommendationsManager
                 if (build.Id != buildId)
                     recommender.DeleteBuild(modelId, build.Id);
             }
+
+            return buildId;
         }
     }
 }

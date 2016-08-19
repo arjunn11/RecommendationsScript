@@ -8,7 +8,7 @@ namespace RecommendationsManager
 {
     class ConsoleApp
     {
-        private static string accountKey = "22fe1376df4444f3b75712ecc208b028";
+        private static string accountKey;
         private const string BaseUri = "https://westus.api.cognitive.microsoft.com/recommendations/v4.0";
         private static RecommendationsManager manager = null;
         private static RecommendationsApiWrapper recommender = null;
@@ -17,6 +17,12 @@ namespace RecommendationsManager
 
         public static void Main(string[] args)
         {
+            //---REMOVE AND INTEGRATE INTO GUI---
+            modelId = "898ef0c9-1338-46a5-8b73-51db22ee78f2";
+            buildId = 1568858;
+            accountKey = "22fe1376df4444f3b75712ecc208b028";
+            //---REMOVE AND INTEGRATE INTO GUI---
+
             if (string.IsNullOrEmpty(accountKey))
             {
                 Console.WriteLine("Please enter your Recommendations API Account key:");
@@ -25,7 +31,7 @@ namespace RecommendationsManager
 
             bool quit = false;
             recommender = new RecommendationsApiWrapper(accountKey, BaseUri);
-            manager = new RecommendationsManager(accountKey, ref recommender, ref modelId, ref buildId);
+            manager = new RecommendationsManager(accountKey, recommender, modelId, buildId);
 
             while (true)
             {
@@ -64,11 +70,6 @@ namespace RecommendationsManager
 
                 try
                 {
-                    //---REMOVE AND INTEGRATE INTO GUI---
-                    modelId = "898ef0c9-1338-46a5-8b73-51db22ee78f2";
-                    buildId = 1568858;
-                    //---REMOVE AND INTEGRATE INTO GUI---
-
                     if (modelId == null)
                     {
                         Console.WriteLine("enter model id");
@@ -96,6 +97,8 @@ namespace RecommendationsManager
                             string modelName = Console.ReadLine();
                             modelId = manager.CreateModel(modelName);
                             buildId = manager.UploadDataAndTrainModel(modelId, BuildType.Recommendation);
+                            manager.SetBuildId(buildId);
+                            manager.SetModelId(modelId);
                             break;
                         case 6: manager.PrintAllModels(); break;
                         case 7: manager.DeleteAllModels(); break;
@@ -115,8 +118,8 @@ namespace RecommendationsManager
                             string productId = Console.ReadLine();
                             manager.GetRecommendationsSingleRequest(recommender, buildId, productId);
                             break;
-                        case 12: manager.UploadNewUsage(); manager.RetrainModel(BuildType.Recommendation); break;
-                        case 13: manager.UploadNewCatalog(); manager.RetrainModel(BuildType.Recommendation); break;
+                        case 12: manager.UploadNewUsage(); buildId = manager.RetrainModel(BuildType.Recommendation); break;
+                        case 13: manager.UploadNewCatalog(); buildId = manager.RetrainModel(BuildType.Recommendation); break;
                     }
                     #endregion
                 }
