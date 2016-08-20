@@ -54,11 +54,11 @@ namespace RecommendationsManager
         }
 
         /// <summary>
-        /// Sets the ModelId and BuildId in SQL for the worker role.
+        /// Sets the ModelId and AccountKey in SQL for the worker role.
         /// </summary>
         /// <param name="_modelId"></param>
-        /// <param name="_buildId"></param>
-        public void SetModelAndBuildIds(string _modelId, long _buildId)
+        /// <param name="_accountKey"></param>
+        public void SetModelAndBuildIds(string _modelId, string _accountKey)
         {
             string recommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
             try
@@ -77,20 +77,16 @@ namespace RecommendationsManager
                     {
                         command.CommandType = CommandType.Text;
                         command.Connection = connection;
-                        command.CommandText = @"INSERT INTO MLInfo (AccountKey, ModelId, BuildId) 
-                                                    VALUES (@AccountKey, @ModelId, @BuildId); ";
+                        command.CommandText = @"INSERT INTO MLInfo (AccountKey, ModelId) VALUES (@AccountKey, @ModelId); ";
                         SqlParameter parameter;
                         parameter = new SqlParameter("@AccountKey", SqlDbType.NVarChar, 50);
-                        parameter.Value = accountKey;
+                        parameter.Value = _accountKey;
                         command.Parameters.Add(parameter);
 
                         parameter = new SqlParameter("@ModelId", SqlDbType.NVarChar, 50);
                         parameter.Value = _modelId;
                         command.Parameters.Add(parameter);
 
-                        parameter = new SqlParameter("BuildId", SqlDbType.BigInt);
-                        parameter.Value = _buildId;
-                        command.Parameters.Add(parameter);
 
                         command.ExecuteNonQuery();
                     }

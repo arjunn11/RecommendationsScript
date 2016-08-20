@@ -17,6 +17,12 @@ namespace RecommendationsManager
 
         public static void Main(string[] args)
         {
+            //---REMOVE FOR PRODUCTION CODE---
+            modelId = "898ef0c9-1338-46a5-8b73-51db22ee78f2";
+            buildId = 1568858;
+            accountKey = "22fe1376df4444f3b75712ecc208b028";
+            //---REMOVE FOR PRODUCTION CODE---
+
             if (string.IsNullOrEmpty(accountKey))
             {
                 Console.WriteLine("Please enter your Recommendations API Account key:");
@@ -55,7 +61,7 @@ namespace RecommendationsManager
                 //---Administrative Tasks---
                 Console.WriteLine("Enter 14 to set buildId for this current session.");
                 Console.WriteLine("Enter 15 to set modelId for this current session.");
-                Console.WriteLine("Enter 16 to set the buildId, modelId, and accountKey in SQL for the worker role.");
+                Console.WriteLine("Enter 16 to set the modelId, and accountKey in SQL for the worker role.");
                 #endregion
 
                 int input;
@@ -129,7 +135,7 @@ namespace RecommendationsManager
                             modelId = Console.ReadLine();
                             manager.SetModelId(modelId);
                             break;
-                        case 16: manager.SetModelAndBuildIds(modelId, buildId); break;
+                        case 16: manager.SetModelAndBuildIds(modelId, accountKey); break;
 
                     }
                     #endregion
