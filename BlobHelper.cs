@@ -8,7 +8,6 @@ using Microsoft.WindowsAzure.Storage.RetryPolicies;
 
 namespace RecommendationsManager
 {
-
     /// <summary>
     /// Helper for Blob Storage Access
     /// </summary>
@@ -309,5 +308,4 @@ namespace RecommendationsManager
         /// </summary>
         private readonly CloudBlobClient _blobClient;
     }
-
 }

@@ -8,7 +8,7 @@ namespace RecommendationsManager
 {
     class ConsoleApp
     {
-        private static string accountKey;
+        private static string accountKey = null;
         private const string BaseUri = "https://westus.api.cognitive.microsoft.com/recommendations/v4.0";
         private static RecommendationsManager manager = null;
         private static RecommendationsApiWrapper recommender = null;
@@ -17,29 +17,10 @@ namespace RecommendationsManager
 
         public static void Main(string[] args)
         {
-            //---REMOVE FOR PRODUCTION CODE---
-            modelId = "898ef0c9-1338-46a5-8b73-51db22ee78f2";
-            buildId = 1568858;
-            accountKey = "22fe1376df4444f3b75712ecc208b028";
-            //---REMOVE FOR PRODUCTION CODE---
-
             if (string.IsNullOrEmpty(accountKey))
             {
                 Console.WriteLine("Please enter your Recommendations API Account key:");
                 accountKey = Console.ReadLine();
-            }
-            if (string.IsNullOrEmpty(modelId))
-            {
-                Console.WriteLine("enter model id");
-                modelId = Console.ReadLine();
-            }
-            if (buildId == -1)
-            {
-                Console.WriteLine("enter build id");
-                if (!(long.TryParse(Console.ReadLine(), out buildId)))
-                {
-                    Console.WriteLine("Invalid input. Try again.");
-                }
             }
 
             bool quit = false;
@@ -82,6 +63,22 @@ namespace RecommendationsManager
                 }
                 try
                 {
+                    if (input >= 10 && input <= 13)
+                    {
+                        if (string.IsNullOrEmpty(modelId))
+                        {
+                            Console.WriteLine("enter model id");
+                            modelId = Console.ReadLine();
+                        }
+                        if (buildId == -1)
+                        {
+                            Console.WriteLine("enter build id");
+                            if (!(long.TryParse(Console.ReadLine(), out buildId)))
+                            {
+                                Console.WriteLine("Invalid input. Try again.");
+                            }
+                        }
+                    }
                     #region
                     switch (input)
                     {

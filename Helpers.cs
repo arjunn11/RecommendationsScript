@@ -734,8 +734,5 @@ namespace RecommendationsManager
         [JsonProperty("job")]
         public JobInfo Job { get; set; }
     }
-
-
-
 }
 

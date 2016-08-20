@@ -17,8 +17,7 @@ namespace RecommendationsManager
 {
     public class RecommendationsManager
     {
-        private string accountKey = "22fe1376df4444f3b75712ecc208b028";
-        private const string BaseUri = "https://westus.api.cognitive.microsoft.com/recommendations/v4.0";
+        private string accountKey = null;
         private RecommendationsApiWrapper recommender = null;
         private string modelId = null;
         private long buildId = -1;
@@ -36,14 +35,61 @@ namespace RecommendationsManager
             buildId = _buildId;
         }
 
+        /// <summary>
+        /// Sets buildId member variable for current session.
+        /// </summary>
+        /// <param name="_buildId"></param>
         public void SetBuildId(long _buildId)
         {
             buildId = _buildId;
         }
 
+        /// <summary>
+        /// Sets modelId member variable for curren session.
+        /// </summary>
+        /// <param name="_modelId"></param>
         public void SetModelId(string _modelId)
         {
             modelId = _modelId;
+        }
+
+        /// <summary>
+        /// Sets the ModelId and BuildId in SQL for the worker role.
+        /// </summary>
+        /// <param name="_modelId"></param>
+        /// <param name="_buildId"></param>
+        public void SetModelAndBuildIds(string _modelId, long _buildId)
+        {
+            string recommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
+            try
+            {
+                using (SqlConnection connection = new SqlConnection(recommendationsConnString))
+                {
+                    connection.Open();
+                    using (SqlCommand command = new SqlCommand())
+                    {
+                        command.CommandType = CommandType.Text;
+                        command.Connection = connection;
+                        command.CommandText = "TRUNCATE TABLE MLInfo; ";
+                        command.ExecuteNonQuery();
+                    }
+                    using (SqlCommand command = new SqlCommand())
+                    {
+                        command.CommandType = CommandType.Text;
+                        command.Connection = connection;
+                        command.CommandText = @"INSERT INTO MLInfo (AccountKey, ModelId, BuildId) 
+                                                    VALUES (@AccountKey, @ModelId, @BuildId); ";
+                        SqlParameter parameter;
+
+                        command.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Error in SetModelAndBuildIds(): {0}", e);
+            }
+
         }
 
         /// <summary>
@@ -53,7 +99,7 @@ namespace RecommendationsManager
         {
             string recommendationsConnString = ConfigurationManager.ConnectionStrings["RecommendationsCS"].ConnectionString;
 
-            using (var connection = new SqlConnection(recommendationsConnString))
+            using (SqlConnection connection = new SqlConnection(recommendationsConnString))
             {
                 connection.Open();
                 Console.WriteLine("Connection opened.");
@@ -77,7 +123,7 @@ namespace RecommendationsManager
             try
             {
                 //Select new usage data and bulk merge into SQL.
-                using (var command = new SqlCommand())
+                using (SqlCommand command = new SqlCommand())
                 {
                     command.Connection = connection;//Set connection used by this instance of SqlCommand
                     command.CommandType = CommandType.Text;//SQL Text Command
@@ -495,7 +541,7 @@ namespace RecommendationsManager
                     //Create input file for batch requests.
                     CreateBatchInputFile(tempRequestIds);
                     //Run batch recommendations job.
-                    GetRecommendationsBatch(recommender, modelId, buildId);
+                    GetRecommendationsBatch();
                     //Parse batch output and store in SQL ([dbo].[ItemRecommendations]).
                     ParseBatchOutput();
                     //Empty temp table for next 10,000 products.
@@ -563,10 +609,7 @@ namespace RecommendationsManager
         /// Shows how to get item-to-item recommendations in batch.
         /// Before you can use this method, you need to provide your blob account name, blob account key, and the input container name.
         /// </summary>
-        /// <param name="recommender">Wrapper that maintains API key</param>
-        /// <param name="modelId">Model ID</param>
-        /// <param name="buildId">Build ID</param>
-        public void GetRecommendationsBatch(RecommendationsApiWrapper recommender, string modelId, long buildId)
+        public void GetRecommendationsBatch()
         {
             #region  setup
             // Set storage credentials and copy input file that defines items we want to get recommendations to the Blob Container.
@@ -748,7 +791,6 @@ namespace RecommendationsManager
             //Add columns for datatable schema.
             DataColumn[] cols =
             {
-                //new DataColumn("UniqueId", typeof(int)) {Unique = true, AutoIncrement = true, AutoIncrementSeed = 1, AutoIncrementStep = 1, AllowDBNull = false},
                 new DataColumn("ProductId", typeof(string)) {Unique = true, AllowDBNull = false },
                 new DataColumn("RecOne", typeof(string)) {AllowDBNull = true },
                 new DataColumn("RecTwo", typeof(string)) {AllowDBNull = true },
