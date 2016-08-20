@@ -51,6 +51,11 @@ namespace RecommendationsManager
                 //---Retrain Machine Learning Model with New Data---
                 Console.WriteLine("Enter 12 to upload a new usage file and retrain ML model.");
                 Console.WriteLine("Enter 13 to add new products to catalog and publish to ML model.");
+
+                //---Administrative Tasks---
+                Console.WriteLine("Enter 14 to set buildId for this current session.");
+                Console.WriteLine("Enter 15 to set modelId for this current session.");
+                Console.WriteLine("Enter 16 to set the buildId, modelId, and accountKey in SQL for the worker role.");
                 #endregion
 
                 int input;
@@ -63,7 +68,7 @@ namespace RecommendationsManager
                 }
                 try
                 {
-                    if (input >= 10 && input <= 13)
+                    if (input >= 10 && input <= 16)
                     {
                         if (string.IsNullOrEmpty(modelId))
                         {
@@ -114,6 +119,18 @@ namespace RecommendationsManager
                             break;
                         case 12: manager.UploadNewUsage(); buildId = manager.RetrainModel(BuildType.Recommendation); break;
                         case 13: manager.UploadNewCatalog(); buildId = manager.RetrainModel(BuildType.Recommendation); break;
+                        case 14:
+                            Console.WriteLine("Enter a buildId");
+                            buildId = Convert.ToInt64(Console.ReadLine());
+                            manager.SetBuildId(buildId);
+                            break;
+                        case 15:
+                            Console.WriteLine("Enter a modelId");
+                            modelId = Console.ReadLine();
+                            manager.SetModelId(modelId);
+                            break;
+                        case 16: manager.SetModelAndBuildIds(modelId, buildId); break;
+
                     }
                     #endregion
                 }

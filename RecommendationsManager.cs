@@ -80,6 +80,17 @@ namespace RecommendationsManager
                         command.CommandText = @"INSERT INTO MLInfo (AccountKey, ModelId, BuildId) 
                                                     VALUES (@AccountKey, @ModelId, @BuildId); ";
                         SqlParameter parameter;
+                        parameter = new SqlParameter("@AccountKey", SqlDbType.NVarChar, 50);
+                        parameter.Value = accountKey;
+                        command.Parameters.Add(parameter);
+
+                        parameter = new SqlParameter("@ModelId", SqlDbType.NVarChar, 50);
+                        parameter.Value = _modelId;
+                        command.Parameters.Add(parameter);
+
+                        parameter = new SqlParameter("BuildId", SqlDbType.BigInt);
+                        parameter.Value = _buildId;
+                        command.Parameters.Add(parameter);
 
                         command.ExecuteNonQuery();
                     }
