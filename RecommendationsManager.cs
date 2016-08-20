@@ -87,7 +87,6 @@ namespace RecommendationsManager
                         parameter.Value = _modelId;
                         command.Parameters.Add(parameter);
 
-
                         command.ExecuteNonQuery();
                     }
                 }
